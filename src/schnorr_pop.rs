@@ -119,7 +119,7 @@ impl<E: EngineBLS, H: FixedOutputReset + Default + Clone + 'static> ProofOfPosse
         let hasher = <DefaultFieldHasher<H> as HashToField<
             <<E as EngineBLS>::PublicKeyGroup as PrimeGroup>::ScalarField,
         >>::new(&[]);
-        let random_scalar: E::Scalar = hasher.hash_to_field::<2>(resulting_proof_basis.as_slice())[0];
+        let random_scalar: E::Scalar = hasher.hash_to_field::<1>(resulting_proof_basis.as_slice())[0];
         random_scalar == self.0 .1
     }
 }

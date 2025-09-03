@@ -6,8 +6,8 @@
 use core::borrow::{Borrow, BorrowMut};
 use core::iter::once;
 
-use ark_ec::Group;
-use ark_ff::Zero;
+use ark_ec::{PrimeGroup};
+use ark_ff::{Zero, AdditiveGroup};
 
 use super::single::SignedMessage;
 use super::verifiers::verify_with_distinct_messages;

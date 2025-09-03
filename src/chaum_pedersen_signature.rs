@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
 
-use ark_ec::{CurveGroup, PrimeGroup};
+use ark_ec::PrimeGroup;
 use ark_ff::field_hashers::{DefaultFieldHasher, HashToField};
 
 use digest::{FixedOutputReset};
