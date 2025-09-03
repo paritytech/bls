@@ -52,7 +52,7 @@ digest = { version = "0.10", default-features = false }
 ark-bls12-381 = { workspace = true }
 ark-bls12-377 = { workspace = true }
 
-# ark-ed-by-bls12-381 = {path = "./ed_by_bls12_381"}
+ark-ed-by-bls12-381 = {path = "./ed_by_bls12_381"}
 
 zeroize = { version = "1.0", default-features = false, features = [ "zeroize_derive" ] }
 
