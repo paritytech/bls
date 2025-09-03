@@ -71,7 +71,7 @@ impl<E: EngineBLS> SecretKeyVT<E> {
 
     pub fn from_seed(seed: &[u8]) -> Self {
         let hasher = <DefaultFieldHasher<Sha256> as HashToField<E::Scalar>>::new(&[]);
-        return SecretKeyVT(hasher.hash_to_field(seed, 1)[0]);
+        return SecretKeyVT(hasher.hash_to_field::<1>(seed)[0]);
     }
 }
 
@@ -381,7 +381,7 @@ where
 {
     fn check(&self) -> Result<(), SerializationError> {
         //TODO probabaly turn into vartime and check that because vartime impl valid
-        match (self.key[1].check(), self.key[2].check()) {
+        match (self.key[0].check(), self.key[1].check()) {
             (Ok(()), Ok(())) => Ok(()),
             _ => Err(SerializationError::InvalidData),
         }

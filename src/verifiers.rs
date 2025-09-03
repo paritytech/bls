@@ -14,7 +14,7 @@ use ark_ff::field_hashers::{DefaultFieldHasher, HashToField};
 #[cfg(feature = "std")]
 use ark_serialize::CanonicalSerialize;
 #[cfg(feature = "std")]
-use digest::DynDigest;
+use digest::FixedOutputReset;
 
 use ark_ec::CurveGroup;
 
@@ -204,7 +204,7 @@ pub fn verify_with_distinct_messages<S: Signed>(signed: S, normalize_public_keys
 #[cfg(feature = "std")]
 pub fn verify_using_aggregated_auxiliary_public_keys<
     E: EngineBLS,
-    H: DynDigest + Default + Clone,
+    H: FixedOutputReset + Default + Clone,
 >(
     signed: &single_pop_aggregator::SignatureAggregatorAssumingPoP<E>,
     normalize_public_keys: bool,
@@ -259,7 +259,7 @@ pub fn verify_using_aggregated_auxiliary_public_keys<
 
     let hasher = <DefaultFieldHasher<H> as HashToField<E::Scalar>>::new(&[]);
     let pseudo_random_scalar: E::Scalar =
-        hasher.hash_to_field(&pseudo_random_scalar_seed[..], 1)[0];
+        hasher.hash_to_field::<1>(&pseudo_random_scalar_seed[..])[0];
 
     let signature = signature + aggregated_aux_pub_key * pseudo_random_scalar;
 
