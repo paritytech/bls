@@ -13,9 +13,9 @@ ark-std = { workspace = true }
 ark-bls12-381 = { workspace = true, features = [ "scalar_field" ] }
 
 [dev-dependencies]
-# ark-serialize = { workspace = true }
-# ark-algebra-test-templates = { workspace = true }
-# ark-algebra-bench-templates = { workspace = true }
+ark-serialize = { workspace = true }
+#ark-algebra-test-templates = { workspace = true }
+#ark-algebra-bench-templates = { workspace = true }
 
 [features]
 default = []

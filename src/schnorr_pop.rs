@@ -35,7 +35,9 @@ trait BLSSchnorrPoPGenerator<E: EngineBLS, H: FixedOutputReset + Default + Clone
     fn witness_scalar(&self) -> <<E as EngineBLS>::PublicKeyGroup as PrimeGroup>::ScalarField;
 }
 
-impl<E: EngineBLS, H: FixedOutputReset + Default + Clone + 'static> BLSSchnorrPoPGenerator<E, H> for Keypair<E> {
+impl<E: EngineBLS, H: FixedOutputReset + Default + Clone + 'static> BLSSchnorrPoPGenerator<E, H>
+    for Keypair<E>
+{
     //The pseudo random witness is generated similar to eddsa witness
     //hash(secret_key|publick_key)
     fn witness_scalar(&self) -> <<E as EngineBLS>::PublicKeyGroup as PrimeGroup>::ScalarField {
@@ -97,8 +99,8 @@ impl<E: EngineBLS, H: FixedOutputReset + Default + Clone + 'static>
     }
 }
 
-impl<E: EngineBLS, H: FixedOutputReset + Default + Clone + 'static> ProofOfPossession<E, H, PublicKey<E>>
-    for SchnorrPoP<E>
+impl<E: EngineBLS, H: FixedOutputReset + Default + Clone + 'static>
+    ProofOfPossession<E, H, PublicKey<E>> for SchnorrPoP<E>
 {
     /// verify the validity of schnoor proof for a given publick key by
     /// making sure this is equal to zero
@@ -119,7 +121,8 @@ impl<E: EngineBLS, H: FixedOutputReset + Default + Clone + 'static> ProofOfPosse
         let hasher = <DefaultFieldHasher<H> as HashToField<
             <<E as EngineBLS>::PublicKeyGroup as PrimeGroup>::ScalarField,
         >>::new(&[]);
-        let random_scalar: E::Scalar = hasher.hash_to_field::<1>(resulting_proof_basis.as_slice())[0];
+        let random_scalar: E::Scalar =
+            hasher.hash_to_field::<1>(resulting_proof_basis.as_slice())[0];
         random_scalar == self.0 .1
     }
 }

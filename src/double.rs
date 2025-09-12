@@ -1,8 +1,10 @@
 //! ## BLS key pair with public key in both G1 and G2
 //! ## Unaggreagated BLS signature along side with their DLEQ proof
 //!
+//!
 //! Implements schemes suggested the
 //! [paper](https://eprint.iacr.org/2022/1611)
+//! This is a specialized case of nugget where the sister group is G1.
 //!
 //! The scheme proposes for the public key be represented by doube points,
 //! both in G1 and G2 and aggregate keys in G1.
@@ -19,68 +21,84 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 use sha2::Sha256;
 
-use crate::broken_derives;
 use crate::chaum_pedersen_signature::{ChaumPedersenSigner, ChaumPedersenVerifier};
+use crate::nugget::{
+    NuggetPublicKeyScheme, NuggetSignature, NuggetSignedMessage, PublicKeyInSignatureGroup,
+};
 use crate::schnorr_pop::SchnorrProof;
 use crate::serialize::SerializableToBytes;
 use crate::single::{Keypair, KeypairVT, PublicKey, SecretKeyVT, Signature};
+use crate::{broken_derives, NuggetPublicKey};
 use crate::{EngineBLS, Message, Signed};
-
-/// Wrapper for a point in the signature group which is supposed to
-/// the same logarithm as the public key in the public key group
-#[derive(Debug, CanonicalSerialize, CanonicalDeserialize)]
-pub struct PublicKeyInSignatureGroup<E: EngineBLS>(pub E::SignatureGroup);
-broken_derives!(PublicKeyInSignatureGroup); // Actually the derive works for this one, not sure why.
 
 /// BLS Public Key with sub keys in both groups.
 #[derive(Debug, Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct DoublePublicKey<E: EngineBLS>(pub E::SignatureGroup, pub E::PublicKeyGroup);
 
-impl<E: EngineBLS> DoublePublicKey<E> {
-    pub fn verify(&self, message: &Message, signature: &DoubleSignature<E>) -> bool {
-        signature.verify(message, self)
+/// The signature itself does not need to be aware of the sister curve
+/// as such it remains the same no matter what is the sister curve.
+
+impl<E: EngineBLS> DoublePublicKey<E>
+where
+    E::SignatureGroup: SerializableToBytes,
+{
+    pub fn into_nugget_public_key(&self) -> NuggetPublicKey<E, E::SignatureGroup> {
+        NuggetPublicKey::<E, E::SignatureGroup>(self.0, self.1, self.0)
+    }
+
+    pub fn verify(&self, message: &Message, signature: &NuggetSignature<E>) -> bool {
+        //TODO: This is not good. Instead there should be common
+        //trait which implement both NuggetPublickey and DoublePublickey
+        //implements and then NuggetSignature and ChumPedersenVerifier
+        //both rely on to verify. It should impement into_public_key_in_sig and sis group. instead of self.0 and self.2
+        signature.verify(message, &self.into_nugget_public_key())
     }
 }
 
-/// Serialization for DoublePublickey
+/// Serialization for DoublePublickey, We save one public key
 impl<E: EngineBLS> SerializableToBytes for DoublePublicKey<E> {
     const SERIALIZED_BYTES_SIZE: usize =
         E::SIGNATURE_SERIALIZED_SIZE + E::PUBLICKEY_SERIALIZED_SIZE;
 }
 
 pub trait DoublePublicKeyScheme<E: EngineBLS> {
+    /// Returns the Public key in G1
     fn into_public_key_in_signature_group(&self) -> PublicKeyInSignatureGroup<E>;
 
     /// Return a double public object containing public keys both in G1 and G2
     fn into_double_public_key(&self) -> DoublePublicKey<E>;
-    fn sign(&mut self, message: &Message) -> DoubleSignature<E>;
+
+    fn sign(&mut self, message: &Message) -> NuggetSignature<E>;
 }
 
-impl<E: EngineBLS> DoublePublicKeyScheme<E> for SecretKeyVT<E> {
+impl<E: EngineBLS> DoublePublicKeyScheme<E> for SecretKeyVT<E>
+where
+    E::SignatureGroup: SerializableToBytes,
+{
+    /// Returns the Public key in G1
     fn into_public_key_in_signature_group(&self) -> PublicKeyInSignatureGroup<E> {
-        PublicKeyInSignatureGroup(
-            <E::SignatureGroup as CurveGroup>::Affine::generator().into_group() * self.0,
-        )
+        NuggetPublicKeyScheme::<E, E::SignatureGroup>::into_public_key_in_signature_group(self)
     }
 
     fn into_double_public_key(&self) -> DoublePublicKey<E> {
         DoublePublicKey(
-            self.into_public_key_in_signature_group().0,
+            DoublePublicKeyScheme::into_public_key_in_signature_group(self).0,
             self.into_public().0,
         )
     }
 
     /// Sign a message using a Seedabale RNG created from a seed derived from the message and key
-    fn sign(&mut self, message: &Message) -> DoubleSignature<E> {
-        let chaum_pedersen_signature =
-            ChaumPedersenSigner::<E, Sha256>::generate_cp_signature(self, &message);
-        DoubleSignature(chaum_pedersen_signature.0 .0, chaum_pedersen_signature.1)
+    fn sign(&mut self, message: &Message) -> NuggetSignature<E> {
+        NuggetPublicKeyScheme::<E, E::SignatureGroup>::sign(self, message)
     }
 }
 
-impl<E: EngineBLS> DoublePublicKeyScheme<E> for KeypairVT<E> {
+impl<E: EngineBLS> DoublePublicKeyScheme<E> for KeypairVT<E>
+where
+    E::SignatureGroup: SerializableToBytes,
+{
     fn into_public_key_in_signature_group(&self) -> PublicKeyInSignatureGroup<E> {
-        self.secret.into_public_key_in_signature_group()
+        DoublePublicKeyScheme::<E>::into_public_key_in_signature_group(&self.secret)
     }
 
     fn into_double_public_key(&self) -> DoublePublicKey<E> {
@@ -88,14 +106,17 @@ impl<E: EngineBLS> DoublePublicKeyScheme<E> for KeypairVT<E> {
     }
 
     /// Sign a message using a Seedabale RNG created from a seed derived from the message and key
-    fn sign(&mut self, message: &Message) -> DoubleSignature<E> {
+    fn sign(&mut self, message: &Message) -> NuggetSignature<E> {
         DoublePublicKeyScheme::sign(&mut self.secret, message)
     }
 }
 
-impl<E: EngineBLS> DoublePublicKeyScheme<E> for Keypair<E> {
+impl<E: EngineBLS> DoublePublicKeyScheme<E> for Keypair<E>
+where
+    E::SignatureGroup: SerializableToBytes,
+{
     fn into_public_key_in_signature_group(&self) -> PublicKeyInSignatureGroup<E> {
-        self.into_vartime().into_public_key_in_signature_group()
+        DoublePublicKeyScheme::into_public_key_in_signature_group(&self.into_vartime())
     }
 
     fn into_double_public_key(&self) -> DoublePublicKey<E> {
@@ -103,77 +124,14 @@ impl<E: EngineBLS> DoublePublicKeyScheme<E> for Keypair<E> {
     }
 
     /// Sign a message using a Seedabale RNG created from a seed derived from the message and key
-    fn sign(&mut self, message: &Message) -> DoubleSignature<E> {
+    fn sign(&mut self, message: &Message) -> NuggetSignature<E> {
         DoublePublicKeyScheme::sign(&mut self.into_vartime(), message)
-    }
-}
-
-/// Detached BLS Signature containing DLEQ
-#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
-pub struct DoubleSignature<E: EngineBLS>(pub E::SignatureGroup, SchnorrProof<E>);
-
-impl<E: EngineBLS> DoubleSignature<E> {
-    //const DESCRIPTION : &'static str = "A BLS signature";
-
-    /// Verify a single BLS signature using DLEQ proof
-    pub fn verify(&self, message: &Message, publickey: &DoublePublicKey<E>) -> bool {
-        <PublicKeyInSignatureGroup<E> as ChaumPedersenVerifier<E, Sha256>>::verify_cp_signature(
-            &PublicKeyInSignatureGroup(publickey.0),
-            &message,
-            (Signature(self.0), self.1),
-        )
     }
 }
 
 /// Message with attached BLS signature
 ///
-///
-#[derive(Debug, Clone)]
-pub struct DoubleSignedMessage<E: EngineBLS> {
-    pub message: Message,
-    pub publickey: DoublePublicKey<E>,
-    pub signature: DoubleSignature<E>,
-}
-
-impl<E: EngineBLS> PartialEq<Self> for DoubleSignedMessage<E> {
-    fn eq(&self, other: &Self) -> bool {
-        self.message.eq(&other.message)
-            && self.publickey.0.eq(&other.publickey.0)
-            && self.publickey.1.eq(&other.publickey.1)
-            && self.signature.0.eq(&other.signature.0)
-    }
-}
-
-impl<'a, E: EngineBLS> Signed for &'a DoubleSignedMessage<E> {
-    type E = E;
-
-    type M = Message;
-    type PKG = PublicKey<E>;
-
-    type PKnM = ::core::iter::Once<(Message, PublicKey<E>)>;
-
-    fn messages_and_publickeys(self) -> Self::PKnM {
-        once((self.message.clone(), PublicKey(self.publickey.1))) // TODO:  Avoid clone
-    }
-
-    fn signature(&self) -> Signature<E> {
-        Signature(self.signature.0)
-    }
-
-    fn verify(self) -> bool {
-        //we chaum pederesen verification which is faster
-        ChaumPedersenVerifier::<E, Sha256>::verify_cp_signature(
-            &PublicKeyInSignatureGroup::<E>(self.publickey.0),
-            &self.message,
-            (Signature(self.signature.0), self.signature.1),
-        )
-    }
-}
-
-/// Serialization for DoubleSignature
-impl<E: EngineBLS> SerializableToBytes for DoubleSignature<E> {
-    const SERIALIZED_BYTES_SIZE: usize = E::SIGNATURE_SERIALIZED_SIZE + 2 * E::SECRET_KEY_SIZE;
-}
+type DoubleSignedMessage<E: EngineBLS> = NuggetSignedMessage<E, E::SignatureGroup>;
 
 #[cfg(all(test, feature = "std"))]
 mod tests {
@@ -208,7 +166,7 @@ mod tests {
         } = x;
 
         let publickey = DoublePublicKey::<EB>::from_bytes(&publickey.to_bytes()).unwrap();
-        let signature = DoubleSignature::<EB>::from_bytes(&signature.to_bytes()).unwrap();
+        let signature = NuggetSignature::<EB>::from_bytes(&signature.to_bytes()).unwrap();
 
         DoubleSignedMessage {
             message,

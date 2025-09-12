@@ -82,7 +82,7 @@ use digest::FixedOutputReset;
 /// TODO: Implement gaussian elimination verification scheme.
 use core::iter::once;
 
-use double::PublicKeyInSignatureGroup;
+use nugget::PublicKeyInSignatureGroup;
 use single::PublicKey;
 
 #[derive(Clone)]

@@ -24,8 +24,8 @@
 //!    * a = -1
 //!    * d = -(10240/10241)
 
-//mod curves;
+mod curves;
 mod fields;
 
-//pub use curves::*;
+pub use curves::*;
 pub use fields::*;

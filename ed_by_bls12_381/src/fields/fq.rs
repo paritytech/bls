@@ -1,4 +1,4 @@
-use ark_ff::fields::{Fp256, MontBackend, MontConfig};
+use ark_ff::fields::{Fp320, MontBackend, MontConfig};
 use ark_std::convert::TryInto;
 
 // 209743500700504761917790962032743863350058407497631366060636747930242587818793 - 1 = 2^3 * 7 * 1070227377386062442297 * 3499648518162578837407906826236242386258238603074429131
@@ -8,4 +8,4 @@ use ark_std::convert::TryInto;
 #[small_subgroup_base = "2"]
 #[small_subgroup_power = "3"]
 pub struct FqConfig;
-pub type Fq = Fp256<MontBackend<FqConfig, 4>>;
+pub type Fq = Fp320<MontBackend<FqConfig, 5>>;

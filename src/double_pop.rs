@@ -4,7 +4,7 @@
 //! [draft-irtf-cfrg-bls-signature-05](https://www.ietf.org/archive/id/draft-irtf-cfrg-bls-signature-05.html)
 
 use crate::engine::EngineBLS;
-use crate::{DoubleSignature, Message, ProofOfPossession, ProofOfPossessionGenerator};
+use crate::{Message, NuggetSignature, ProofOfPossession, ProofOfPossessionGenerator};
 
 use crate::double::{DoublePublicKey, DoublePublicKeyScheme};
 use crate::serialize::SerializableToBytes;
@@ -25,6 +25,8 @@ pub struct NuggetBLSPoP<E: EngineBLS>(pub E::SignatureGroup);
 //The bls proof of possession for single or double public key schemes are the same
 impl<E: EngineBLS, H: FixedOutputReset + Default + Clone + 'static>
     ProofOfPossessionGenerator<E, H, DoublePublicKey<E>, NuggetBLSPoP<E>> for Keypair<E>
+where
+    E::SignatureGroup: SerializableToBytes,
 {
     fn generate_pok(&mut self) -> NuggetBLSPoP<E> {
         //We simply classicaly BLS sign public key in G2 based on https://eprint.iacr.org/2022/1611
@@ -40,8 +42,8 @@ impl<E: EngineBLS> SerializableToBytes for NuggetBLSPoP<E> {
 
 /// The verification process for verifying both possession of one secret key
 /// for two public key is different.
-impl<E: EngineBLS, H: FixedOutputReset + Default + Clone + 'static> ProofOfPossession<E, H, DoublePublicKey<E>>
-    for NuggetBLSPoP<E>
+impl<E: EngineBLS, H: FixedOutputReset + Default + Clone + 'static>
+    ProofOfPossession<E, H, DoublePublicKey<E>> for NuggetBLSPoP<E>
 {
     /// verify the validity of PoP by performing the following Pairing
     /// e(H_pop(pk_2) + t.g_1, pk_2) = e(sign(H_pop(pk_2))+ t.pk_1, g_2)
@@ -102,11 +104,13 @@ impl<E: EngineBLS, H: FixedOutputReset + Default + Clone + 'static> ProofOfPosse
 /// keys in G1 and G2 by generating a BLS Signature of public key (in G2) plus proof
 /// of knowledge of the secret key of the chaum-pedersen key (samae secret key)
 #[derive(CanonicalSerialize, CanonicalDeserialize)]
-pub struct NuggetBLSnCPPoP<E: EngineBLS>(pub DoubleSignature<E>);
+pub struct NuggetBLSnCPPoP<E: EngineBLS>(pub NuggetSignature<E>);
 
 //The implement the generation of bls proof of possession including  chaum-pederesno PoP for double public key schemes
 impl<E: EngineBLS, H: FixedOutputReset + Default + Clone + 'static>
     ProofOfPossessionGenerator<E, H, DoublePublicKey<E>, NuggetBLSnCPPoP<E>> for Keypair<E>
+where
+    E::SignatureGroup: SerializableToBytes,
 {
     fn generate_pok(&mut self) -> NuggetBLSnCPPoP<E> {
         //We simply classicaly BLS sign public key in G2 based on https://eprint.iacr.org/2022/1611
@@ -123,12 +127,14 @@ impl<E: EngineBLS, H: FixedOutputReset + Default + Clone + 'static>
 /// Serialization for NuggetBLSnCPPoP
 impl<E: EngineBLS> SerializableToBytes for NuggetBLSnCPPoP<E> {
     const SERIALIZED_BYTES_SIZE: usize =
-        <DoubleSignature<E> as SerializableToBytes>::SERIALIZED_BYTES_SIZE;
+        <NuggetSignature<E> as SerializableToBytes>::SERIALIZED_BYTES_SIZE;
 }
 
 /// The verification process for verifying both nugget BLS and CP
-impl<E: EngineBLS, H: FixedOutputReset + Default + Clone + 'static> ProofOfPossession<E, H, DoublePublicKey<E>>
-    for NuggetBLSnCPPoP<E>
+impl<E: EngineBLS, H: FixedOutputReset + Default + Clone + 'static>
+    ProofOfPossession<E, H, DoublePublicKey<E>> for NuggetBLSnCPPoP<E>
+where
+    E::SignatureGroup: SerializableToBytes,
 {
     /// verify the validity of PoP by verifying nugget PoP and the CP
     /// signature

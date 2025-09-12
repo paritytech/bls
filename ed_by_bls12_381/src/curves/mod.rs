@@ -1,0 +1,93 @@
+use ark_ec::{
+    models::CurveConfig,
+    twisted_edwards::{Affine, MontCurveConfig, Projective, TECurveConfig},
+};
+use ark_ff::MontFp;
+
+use crate::{Fq, Fr};
+
+#[cfg(test)]
+mod tests;
+
+pub type EdwardsAffine = Affine<EdwardsConfig>;
+pub type EdwardsProjective = Projective<EdwardsConfig>;
+
+/// This is a twisted Edwards curve with prime group order matching of BLS12-381 curve.
+/// These curves have equations of the form:
+///  ax² + y² = 1 - dx²y².
+/// over some base finite field Fq.
+///
+/// The curve equation:
+///-x² + y² = 1 + (60912168144815564697207975035132947531112799593189986442673280194214951700554)x²y²
+/// q = 209743500700504761917790962032743863350058407497631366060636747930242587818793
+///
+/// a = -1.
+/// d = -(209743500700504761917790962032743863350058407497631366060636747930242587818793) mod q
+///   = 148831332555689197220582986997610915818945607904441379617963467736027636118239.
+///
+/// Sage script to calculate these:
+/// <https://github.com/kwantam/eccons>
+///
+///
+#[derive(Clone, Default, PartialEq, Eq)]
+pub struct EdwardsConfig;
+
+impl CurveConfig for EdwardsConfig {
+    type BaseField = Fq;
+    type ScalarField = Fr;
+
+    /// COFACTOR = 4
+    const COFACTOR: &'static [u64] = &[4];
+
+    /// COFACTOR^(-1) mod r =
+    /// 39326906381344642859585805381139474378267914375395728366952744024953935888385
+    const COFACTOR_INV: Fr =
+        MontFp!("39326906381344642859585805381139474378267914375395728366952744024953935888385");
+}
+
+impl TECurveConfig for EdwardsConfig {
+    /// COEFF_A = -1
+    const COEFF_A: Fq = MontFp!("-1");
+
+    /// COEFF_D = 60912168144815564697207975035132947531112799593189986442673280194214951700554 mod q
+    const COEFF_D: Fq =
+        MontFp!("60912168144815564697207975035132947531112799593189986442673280194214951700554");
+
+    /// AFFINE_GENERATOR_COEFFS = (GENERATOR_X, GENERATOR_Y)
+    const GENERATOR: EdwardsAffine = EdwardsAffine::new_unchecked(GENERATOR_X, GENERATOR_Y);
+
+    type MontCurveConfig = EdwardsConfig;
+
+    /// Multiplication by `a` is simply negation here.
+    #[inline(always)]
+    fn mul_by_a(elem: Self::BaseField) -> Self::BaseField {
+        -elem
+    }
+}
+
+impl MontCurveConfig for EdwardsConfig {
+    /// COEFF_A = 150552185000767967091809320566643363935245715346071779894588871248679258855808
+
+    const COEFF_A: Fq =
+        MontFp!("150552185000767967091809320566643363935245715346071779894588871248679258855808");
+
+    /// COEFF_B = 59191315699736794825981641466100499414812692151559586166047876681563328962983
+
+    const COEFF_B: Fq =
+        MontFp!("59191315699736794825981641466100499414812692151559586166047876681563328962983");
+
+    type TECurveConfig = EdwardsConfig;
+}
+
+/// GENERATOR on SW form is:
+/// (6, 36753626972092273401291481400832788702774832794537530334138333566253022673610)
+
+/// GENERATOR_X =
+/// 106819937334247543563952361022322359649375664613021346145731497534102240664063
+pub const GENERATOR_X: Fq =
+    MontFp!("106819937334247543563952361022322359649375664613021346145731497534102240664063");
+
+/// GENERATOR_Y =
+/// 9774132485258357090895695270995375142429303910811645612426306461138432215132
+pub const GENERATOR_Y: Fq =
+    MontFp!("9774132485258357090895695270995375142429303910811645612426306461138432215132");

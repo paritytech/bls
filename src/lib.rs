@@ -106,6 +106,7 @@ pub mod chaum_pedersen_signature;
 pub mod double;
 pub mod double_pop;
 pub mod engine;
+pub mod nugget;
 pub mod schnorr_pop;
 pub mod serialize;
 pub mod single;
@@ -125,10 +126,12 @@ pub mod distinct;
 
 pub use engine::*;
 
-pub use double::{
-    DoublePublicKey, DoublePublicKeyScheme, DoubleSignature, PublicKeyInSignatureGroup,
-};
+pub use double::{DoublePublicKey, DoublePublicKeyScheme};
 pub use double_pop::{NuggetBLSPoP, NuggetBLSnCPPoP};
+pub use nugget::{
+    NuggetPublicKey, NuggetPublicKeyScheme, NuggetSignature, PublicKeyInSignatureGroup,
+    PublicKeyInSisterGroup,
+};
 pub use schnorr_pop::SchnorrProof;
 pub use serialize::SerializableToBytes;
 pub use single::{Keypair, KeypairVT, PublicKey, SecretKey, SecretKeyVT, Signature, SignedMessage};
