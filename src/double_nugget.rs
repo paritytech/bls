@@ -117,6 +117,8 @@ mod tests {
 
     use super::*;
 
+    use core::marker::PhantomData;
+
     use ark_bls12_377::Bls12_377;
     use ark_bls12_381::Bls12_381;
     use ark_ec::bls12::Bls12Config;
@@ -142,16 +144,17 @@ mod tests {
             message,
             publickey,
             signature,
+            ..
         } = x;
 
         let publickey = NuggetDoublePublicKey::<EB>::from_bytes(&publickey.to_bytes()).unwrap();
         let signature = NuggetSignature::<EB>::from_bytes(&signature.to_bytes()).unwrap();
 
-        let publickey = publickey.into_nugget_public_key();
         DoubleSignedMessage {
             message,
             publickey,
             signature,
+            _phantom: PhantomData,
         }
     }
 
@@ -179,7 +182,7 @@ mod tests {
         let bad = Message::new(b"ctx", b"wrong message");
         let bad_sig = DoubleNuggetBLS::sign(&mut keypair, &bad);
 
-        assert!(bad_sig.verify(
+        assert!(bad_sig.verify::<_, Sha256, _>(
             &bad,
             &DoubleNuggetBLS::into_nugget_double_public_key(&keypair)
         ));
@@ -188,14 +191,14 @@ mod tests {
         assert!(good_sig.0 != bad_sig.0, "good sig == bad sig");
 
         assert!(
-            !bad_sig.verify(
+            !bad_sig.verify::<_, Sha256, _>(
                 &good,
                 &DoubleNuggetBLS::into_nugget_double_public_key(&keypair)
             ),
             "Verification of a signature on a different message passed!"
         );
         assert!(
-            !good_sig.verify(
+            !good_sig.verify::<_, Sha256, _>(
                 &bad,
                 &DoubleNuggetBLS::into_nugget_double_public_key(&keypair)
             ),
@@ -212,11 +215,9 @@ mod tests {
 
         let signed_message = DoubleSignedMessage {
             message: message,
-            publickey: NuggetDoublePublicKey(
-                keypair.into_public_key_in_signature_group().0,
-                keypair.public.0,
-            ),
+            publickey: keypair.into_nugget_double_public_key(),
             signature: good_sig0,
+            _phantom: PhantomData,
         };
 
         assert!(
@@ -245,11 +246,9 @@ mod tests {
 
         let signed_message = DoubleSignedMessage {
             message: message,
-            publickey: NuggetDoublePublicKey(
-                keypair.into_public_key_in_signature_group().0,
-                keypair.public.0,
-            ),
+            publickey: keypair.into_nugget_double_public_key(),
             signature: good_sig0,
+            _phantom: PhantomData,
         };
 
         assert!(

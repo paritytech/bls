@@ -155,10 +155,25 @@ where
     S: PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes,
     P: Sized,
 {
-    message: Message,
-    publickey: P,
-    signature: NuggetSignature<E>,
-    _phantom: PhantomData<S>,
+    pub message: Message,
+    pub publickey: P,
+    pub signature: NuggetSignature<E>,
+    pub _phantom: PhantomData<S>,
+}
+
+impl<E: EngineBLS, S: CurveGroup, P: NuggetPublicKey<E, S>> NuggetSignedMessage<E, S, P>
+where
+    S: PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes,
+    P: Sized,
+{
+    pub fn new(message: Message, publickey: P, signature: NuggetSignature<E>) -> Self {
+        NuggetSignedMessage {
+            message,
+            publickey,
+            signature,
+            _phantom: PhantomData,
+        }
+    }
 }
 
 impl<E: EngineBLS, S: CurveGroup, P: NuggetPublicKey<E, S>> PartialEq<Self>
