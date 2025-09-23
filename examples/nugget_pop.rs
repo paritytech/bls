@@ -2,7 +2,7 @@
 use sha2::Sha256;
 #[cfg(feature = "std")]
 use w3f_bls::{
-    DoublePublicKey, Keypair, NuggetBLSPoP, NuggetBLSnCPPoP, ProofOfPossessionGenerator,
+    NuggetDoublePublicKey, Keypair, NuggetBLSPoP, NuggetBLSnCPPoP, ProofOfPossessionGenerator,
     SerializableToBytes, TinyBLS381,
 };
 
@@ -22,7 +22,7 @@ fn main() {
         let proof_pair = <dyn ProofOfPossessionGenerator<
             TinyBLS381,
             Sha256,
-            DoublePublicKey<TinyBLS381>,
+            NuggetDoublePublicKey<TinyBLS381>,
             NuggetBLSPoP<TinyBLS381>,
         >>::generate_pok(&mut keypair);
 
@@ -36,7 +36,7 @@ fn main() {
         let proof_pair = <dyn ProofOfPossessionGenerator<
             TinyBLS381,
             Sha256,
-            DoublePublicKey<TinyBLS381>,
+            NuggetDoublePublicKey<TinyBLS381>,
             NuggetBLSnCPPoP<TinyBLS381>,
         >>::generate_pok(&mut keypair);
 

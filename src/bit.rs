@@ -6,7 +6,6 @@
 use core::borrow::{Borrow, BorrowMut};
 use core::iter::once;
 
-use ark_ec::PrimeGroup;
 use ark_ff::{AdditiveGroup, Zero};
 
 use super::single::SignedMessage;

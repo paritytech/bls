@@ -7,7 +7,7 @@ use digest::FixedOutputReset;
 
 use crate::engine::EngineBLS;
 use crate::nugget::{
-    NuggetBLS, NuggetPublicKey, PublicKeyInSignatureGroup, PublicKeyInSisterGroup,
+    NuggetBLS, NuggetPublicKey,
 };
 use crate::schnorr_pop::SchnorrProof;
 use crate::serialize::SerializableToBytes;
@@ -46,13 +46,14 @@ pub trait ChaumPedersenVerifier<
 >: NuggetPublicKey<E, S> where
     S: PrimeGroup<ScalarField = E::Scalar>,
 {
+    #[allow(non_snake_case)]
     fn verify_cp_signature(
         &self,
         message: &Message,
         signature_proof: ChaumPedersenSignature<E>,
     ) -> bool {
         let signature_as_scalars_of_sister_group: (S::ScalarField, S::ScalarField) =
-            (signature_proof.1 .0, signature_proof.1 .1);
+            (signature_proof.1 .0, signature_proof.1 .1);      
         let A_check_point = <S as PrimeGroup>::generator() * signature_as_scalars_of_sister_group.1
             + self.into_public_key_in_sister_group().0 * signature_as_scalars_of_sister_group.0;
 

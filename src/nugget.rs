@@ -236,179 +236,179 @@ impl<E: EngineBLS> SerializableToBytes for NuggetSignature<E> {
 
 #[cfg(all(test, feature = "std"))]
 mod tests {
-    use rand::thread_rng;
+    // //use rand::thread_rng;
 
-    use super::*;
+    // use super::*;
 
-    use ark_bls12_377::Bls12_377;
-    use ark_bls12_381::Bls12_381;
-    use ark_ec::bls12::Bls12Config;
-    use ark_ec::hashing::curve_maps::wb::{WBConfig, WBMap};
-    use ark_ec::hashing::map_to_curve_hasher::MapToCurve;
-    use ark_ec::pairing::Pairing as PairingEngine;
+    // use ark_bls12_377::Bls12_377;
+    // use ark_bls12_381::Bls12_381;
+    // use ark_ec::bls12::Bls12Config;
+    // use ark_ec::hashing::curve_maps::wb::{WBConfig, WBMap};
+    // use ark_ec::hashing::map_to_curve_hasher::MapToCurve;
+    // use ark_ec::pairing::Pairing as PairingEngine;
 
-    use crate::{EngineBLS, Message, TinyBLS};
+    // use crate::{EngineBLS, Message, TinyBLS};
 
-    fn nugget_public_key_serialization_test<
-        EB: EngineBLS<Engine = E>,
-        S: CurveGroup + PrimeGroup<ScalarField = EB::Scalar> + SerializableToBytes,
-        E: PairingEngine,
-        P: Bls12Config,
-        PUB: NuggetPublicKey<EB, S> + SerializableToBytes,
-    >(
-        x: NuggetSignedMessage<EB, S, PUB>,
-    ) -> NuggetSignedMessage<EB, S, PUB>
-    where
-        <P as Bls12Config>::G2Config: WBConfig,
-        WBMap<<P as Bls12Config>::G2Config>: MapToCurve<<E as PairingEngine>::G2>,
-        EB::SignatureGroup: SerializableToBytes,
-    {
-        let NuggetSignedMessage {
-            message,
-            publickey,
-            signature,
-            _phantom,
-        } = x;
-
-        let publickey = PUB::from_bytes(&publickey.to_bytes()).unwrap();
-        let signature = NuggetSignature::<EB>::from_bytes(&signature.to_bytes()).unwrap();
-
-        NuggetSignedMessage {
-            message,
-            publickey,
-            signature,
-            _phantom: PhantomData,
-        }
-    }
-
-    // fn test_single_bls_message_double_signature_scheme<
+    // fn nugget_public_key_serialization_test<
     //     EB: EngineBLS<Engine = E>,
+    //     S: CurveGroup + PrimeGroup<ScalarField = EB::Scalar> + SerializableToBytes,
     //     E: PairingEngine,
     //     P: Bls12Config,
-    // >()
+    //     PUB: NuggetPublicKey<EB, S> + SerializableToBytes,
+    // >(
+    //     x: NuggetSignedMessage<EB, S, PUB>,
+    // ) -> NuggetSignedMessage<EB, S, PUB>
     // where
     //     <P as Bls12Config>::G2Config: WBConfig,
     //     WBMap<<P as Bls12Config>::G2Config>: MapToCurve<<E as PairingEngine>::G2>,
+    //     EB::SignatureGroup: SerializableToBytes,
     // {
-    //     let good = Message::new(b"ctx", b"test message");
+    //     let NuggetSignedMessage {
+    //         message,
+    //         publickey,
+    //         signature,
+    //         _phantom,
+    //     } = x;
 
-    //     let mut keypair = Keypair::<EB>::generate(thread_rng());
-    //     let public_key = NuggetBLS::into_double_public_key(&mut keypair);
-    //     let good_sig = NuggetBLS::sign(&mut keypair, &good);
+    //     let publickey = PUB::from_bytes(&publickey.to_bytes()).unwrap();
+    //     let signature = NuggetSignature::<EB>::from_bytes(&signature.to_bytes()).unwrap();
 
-    //     assert!(
-    //         public_key.verify(&good, &good_sig),
-    //         "Verification of a valid signature failed!"
-    //     );
-
-    //     let bad = Message::new(b"ctx", b"wrong message");
-    //     let bad_sig = NuggetBLS::sign(&mut keypair, &bad);
-
-    //     assert!(bad_sig.verify(
-    //         &bad,
-    //         &NuggetBLS::into_double_public_key(&keypair)
-    //     ));
-
-    //     assert!(good != bad, "good == bad");
-    //     assert!(good_sig.0 != bad_sig.0, "good sig == bad sig");
-
-    //     assert!(
-    //         !bad_sig.verify(
-    //             &good,
-    //             &NuggetBLS::into_double_public_key(&keypair)
-    //         ),
-    //         "Verification of a signature on a different message passed!"
-    //     );
-    //     assert!(
-    //         !good_sig.verify(
-    //             &bad,
-    //             &NuggetBLS::into_double_public_key(&keypair)
-    //         ),
-    //         "Verification of a signature on a different message passed!"
-    //     );
+    //     NuggetSignedMessage {
+    //         message,
+    //         publickey,
+    //         signature,
+    //         _phantom: PhantomData,
+    //     }
     // }
 
-    // #[test]
-    // fn test_double_public_key_double_signature_serialization_for_bls12_377() {
-    //     let mut keypair =
-    //         Keypair::<TinyBLS<Bls12_377, ark_bls12_377::Config>>::generate(thread_rng());
-    //     let message = Message::new(b"ctx", b"test message");
-    //     let good_sig0 = NuggetBLS::sign(&mut keypair, &message);
+    // // fn test_single_bls_message_double_signature_scheme<
+    // //     EB: EngineBLS<Engine = E>,
+    // //     E: PairingEngine,
+    // //     P: Bls12Config,
+    // // >()
+    // // where
+    // //     <P as Bls12Config>::G2Config: WBConfig,
+    // //     WBMap<<P as Bls12Config>::G2Config>: MapToCurve<<E as PairingEngine>::G2>,
+    // // {
+    // //     let good = Message::new(b"ctx", b"test message");
 
-    //     let signed_message = NuggetSignedMessage {
-    //         message: message,
-    //         publickey: NuggetPublicKey(
-    //             keypair.into_public_key_in_signature_group().0,
-    //             keypair.public.0,
-    //         ),
-    //         signature: good_sig0,
-    //     };
+    // //     let mut keypair = Keypair::<EB>::generate(thread_rng());
+    // //     let public_key = NuggetBLS::into_double_public_key(&mut keypair);
+    // //     let good_sig = NuggetBLS::sign(&mut keypair, &good);
 
-    //     assert!(
-    //         signed_message.verify(),
-    //         "valid double signed message should verify"
-    //     );
+    // //     assert!(
+    // //         public_key.verify(&good, &good_sig),
+    // //         "Verification of a valid signature failed!"
+    // //     );
 
-    //     let deserialized_signed_message = double_public_serialization_test::<
-    //         TinyBLS<Bls12_377, ark_bls12_377::Config>,
-    //         Bls12_377,
-    //         ark_bls12_377::Config,
-    //     >(signed_message);
+    // //     let bad = Message::new(b"ctx", b"wrong message");
+    // //     let bad_sig = NuggetBLS::sign(&mut keypair, &bad);
 
-    //     assert!(
-    //         deserialized_signed_message.verify(),
-    //         "deserialized valid double signed message should verify"
-    //     );
-    // }
+    // //     assert!(bad_sig.verify(
+    // //         &bad,
+    // //         &NuggetBLS::into_double_public_key(&keypair)
+    // //     ));
 
-    // #[test]
-    // fn test_double_public_key_double_signature_serialization_for_bls12_381() {
-    //     let mut keypair =
-    //         Keypair::<TinyBLS<Bls12_381, ark_bls12_381::Config>>::generate(thread_rng());
-    //     let message = Message::new(b"ctx", b"test message");
-    //     let good_sig0 = NuggetBLS::sign(&mut keypair, &message);
+    // //     assert!(good != bad, "good == bad");
+    // //     assert!(good_sig.0 != bad_sig.0, "good sig == bad sig");
 
-    //     let signed_message = NuggetSignedMessage {
-    //         message: message,
-    //         publickey: NuggetPublicKey(
-    //             keypair.into_public_key_in_signature_group().0,
-    //             keypair.public.0,
-    //         ),
-    //         signature: good_sig0,
-    //     };
+    // //     assert!(
+    // //         !bad_sig.verify(
+    // //             &good,
+    // //             &NuggetBLS::into_double_public_key(&keypair)
+    // //         ),
+    // //         "Verification of a signature on a different message passed!"
+    // //     );
+    // //     assert!(
+    // //         !good_sig.verify(
+    // //             &bad,
+    // //             &NuggetBLS::into_double_public_key(&keypair)
+    // //         ),
+    // //         "Verification of a signature on a different message passed!"
+    // //     );
+    // // }
 
-    //     assert!(
-    //         signed_message.verify(),
-    //         "valid double signed message should verify"
-    //     );
+    // // #[test]
+    // // fn test_double_public_key_double_signature_serialization_for_bls12_377() {
+    // //     let mut keypair =
+    // //         Keypair::<TinyBLS<Bls12_377, ark_bls12_377::Config>>::generate(thread_rng());
+    // //     let message = Message::new(b"ctx", b"test message");
+    // //     let good_sig0 = NuggetBLS::sign(&mut keypair, &message);
 
-    //     let deserialized_signed_message = double_public_serialization_test::<
-    //         TinyBLS<Bls12_381, ark_bls12_381::Config>,
-    //         Bls12_381,
-    //         ark_bls12_381::Config,
-    //     >(signed_message);
+    // //     let signed_message = NuggetSignedMessage {
+    // //         message: message,
+    // //         publickey: NuggetPublicKey(
+    // //             keypair.into_public_key_in_signature_group().0,
+    // //             keypair.public.0,
+    // //         ),
+    // //         signature: good_sig0,
+    // //     };
 
-    //     assert!(
-    //         deserialized_signed_message.verify(),
-    //         "deserialized valid double signed message should verify"
-    //     );
-    // }
+    // //     assert!(
+    // //         signed_message.verify(),
+    // //         "valid double signed message should verify"
+    // //     );
 
-    // #[test]
-    // fn test_single_bls_message_double_signature_scheme_for_bls12_377() {
-    //     test_single_bls_message_double_signature_scheme::<
-    //         TinyBLS<Bls12_377, ark_bls12_377::Config>,
-    //         Bls12_377,
-    //         ark_bls12_377::Config,
-    //     >();
-    // }
+    // //     let deserialized_signed_message = double_public_serialization_test::<
+    // //         TinyBLS<Bls12_377, ark_bls12_377::Config>,
+    // //         Bls12_377,
+    // //         ark_bls12_377::Config,
+    // //     >(signed_message);
 
-    // #[test]
-    // fn test_single_bls_message_double_signature_scheme_for_bls12_381() {
-    //     test_single_bls_message_double_signature_scheme::<
-    //         TinyBLS<Bls12_381, ark_bls12_381::Config>,
-    //         Bls12_381,
-    //         ark_bls12_381::Config,
-    //     >();
-    // }
+    // //     assert!(
+    // //         deserialized_signed_message.verify(),
+    // //         "deserialized valid double signed message should verify"
+    // //     );
+    // // }
+
+    // // #[test]
+    // // fn test_double_public_key_double_signature_serialization_for_bls12_381() {
+    // //     let mut keypair =
+    // //         Keypair::<TinyBLS<Bls12_381, ark_bls12_381::Config>>::generate(thread_rng());
+    // //     let message = Message::new(b"ctx", b"test message");
+    // //     let good_sig0 = NuggetBLS::sign(&mut keypair, &message);
+
+    // //     let signed_message = NuggetSignedMessage {
+    // //         message: message,
+    // //         publickey: NuggetPublicKey(
+    // //             keypair.into_public_key_in_signature_group().0,
+    // //             keypair.public.0,
+    // //         ),
+    // //         signature: good_sig0,
+    // //     };
+
+    // //     assert!(
+    // //         signed_message.verify(),
+    // //         "valid double signed message should verify"
+    // //     );
+
+    // //     let deserialized_signed_message = double_public_serialization_test::<
+    // //         TinyBLS<Bls12_381, ark_bls12_381::Config>,
+    // //         Bls12_381,
+    // //         ark_bls12_381::Config,
+    // //     >(signed_message);
+
+    // //     assert!(
+    // //         deserialized_signed_message.verify(),
+    // //         "deserialized valid double signed message should verify"
+    // //     );
+    // // }
+
+    // // #[test]
+    // // fn test_single_bls_message_double_signature_scheme_for_bls12_377() {
+    // //     test_single_bls_message_double_signature_scheme::<
+    // //         TinyBLS<Bls12_377, ark_bls12_377::Config>,
+    // //         Bls12_377,
+    // //         ark_bls12_377::Config,
+    // //     >();
+    // // }
+
+    // // #[test]
+    // // fn test_single_bls_message_double_signature_scheme_for_bls12_381() {
+    // //     test_single_bls_message_double_signature_scheme::<
+    // //         TinyBLS<Bls12_381, ark_bls12_381::Config>,
+    // //         Bls12_381,
+    // //         ark_bls12_381::Config,
+    // //     >();
+    // // }
 }

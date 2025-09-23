@@ -103,7 +103,7 @@ use core::borrow::Borrow;
 use digest::DynDigest;
 
 pub mod chaum_pedersen_signature;
-//pub mod double_pop;
+pub mod nugget_pop;
 pub mod double_nugget;
 pub mod engine;
 pub mod nugget;
@@ -127,8 +127,8 @@ pub mod distinct;
 
 pub use engine::*;
 
-pub use double_nugget::{DoubleNuggetBLS, NuggetDoublePublicKey};
-// pub use double_pop::{NuggetBLSPoP, NuggetBLSnCPPoP};
+pub use double_nugget::{DoubleNuggetBLS, NuggetDoublePublicKey, DoubleSignedMessage};
+pub use nugget_pop::{NuggetBLSPoP, NuggetBLSnCPPoP};
 pub use nugget::{
     NuggetBLS, NuggetPublicKey, NuggetSignature, PublicKeyInSignatureGroup, PublicKeyInSisterGroup,
 };

@@ -1,20 +1,18 @@
-use ark_ec::{AffineRepr, CurveGroup, PrimeGroup};
+use ark_ec::{CurveGroup, PrimeGroup};
 
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 use digest::FixedOutputReset;
 use sha2::Sha256;
 
-use crate::broken_derives;
-use crate::chaum_pedersen_signature::{ChaumPedersenSigner, ChaumPedersenVerifier};
+use crate::chaum_pedersen_signature::{ChaumPedersenVerifier};
 use crate::nugget::{
-    NuggetBLS, NuggetPublicKey, NuggetSignature, NuggetSignedMessage, PublicKeyInSignatureGroup,
+    NuggetBLS, NuggetPublicKey, NuggetSignature, PublicKeyInSignatureGroup,
     PublicKeyInSisterGroup,
 };
-use crate::schnorr_pop::SchnorrProof;
 use crate::serialize::SerializableToBytes;
-use crate::single::{Keypair, KeypairVT, PublicKey, SecretKeyVT, Signature};
-use crate::{EngineBLS, Message, Signed};
+use crate::single::{Keypair, KeypairVT, PublicKey, SecretKeyVT};
+use crate::{EngineBLS, Message};
 
 /// BLS Public Key with sub keys in both G1 and G2 and on a third curve with same prime order group
 #[derive(Debug, Clone, CanonicalSerialize, CanonicalDeserialize)]
@@ -118,17 +116,18 @@ mod tests {
 
     use super::*;
 
-    use ark_bls12_377::Bls12_377;
     use ark_bls12_381::Bls12_381;
     use ark_ec::bls12::Bls12Config;
     use ark_ec::hashing::curve_maps::wb::{WBConfig, WBMap};
     use ark_ec::hashing::map_to_curve_hasher::MapToCurve;
     use ark_ec::pairing::Pairing as PairingEngine;
+    use ark_ec::twisted_edwards;
+    use ark_ed_by_bls12_381;
 
     use crate::{EngineBLS, Message, TinyBLS};
 
     //TODO test for triple public key serialization
-    fn test_single_bls_message_double_signature_scehme<
+    fn test_single_bls_message_double_signature_triple_publickey_scheme<
         EB: EngineBLS<Engine = E>,
         S: CurveGroup + PrimeGroup<ScalarField = EB::Scalar> + SerializableToBytes,
         E: PairingEngine,
@@ -175,4 +174,31 @@ mod tests {
             "Verification of a signature on a different message passed!"
         );
     }
+
+    // We don't have a curve for bls12-377 yet
+    // #[test]
+    // fn test_single_bls_message_double_signature_triple_publickey_scheme_for_bls12_377() {
+    //     test_single_bls_message_double_signature_triple_publickey_scheme::<
+    //         TinyBLS<Bls12_377, ark_bls12_377::Config>,
+    //         twisted_edwards::Projective<ark_ed_by_bls12_381::EdwardsConfig>,
+    //         Bls12_377,
+    //         ark_bls12_377::Config,
+            
+    //     >();
+    // }
+
+    impl SerializableToBytes for twisted_edwards::Projective<ark_ed_by_bls12_381::EdwardsConfig> {
+        const SERIALIZED_BYTES_SIZE: usize = 40;
+    }
+
+    #[test]
+    fn test_single_bls_message_double_signature_triple_publickey_scheme_for_bls12_381() {
+        test_single_bls_message_double_signature_triple_publickey_scheme::<
+            TinyBLS<Bls12_381, ark_bls12_381::Config>,
+            twisted_edwards::Projective<ark_ed_by_bls12_381::EdwardsConfig>,
+            Bls12_381,
+            ark_bls12_381::Config,
+        >();
+    }
+
 }

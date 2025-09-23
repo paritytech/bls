@@ -2,7 +2,7 @@
 use sha2::Sha256;
 #[cfg(feature = "std")]
 use w3f_bls::{
-    single_pop_aggregator::SignatureAggregatorAssumingPoP, DoublePublicKeyScheme, EngineBLS,
+    single_pop_aggregator::SignatureAggregatorAssumingPoP, NuggetBLS, EngineBLS,
     Keypair, Message, PublicKey, PublicKeyInSignatureGroup, Signed, TinyBLS, TinyBLS377,
 };
 
@@ -20,6 +20,8 @@ use rand::thread_rng;
 fn main() {
     #[cfg(feature = "std")]
     {
+        type EB = TinyBLS<Bls12_377, ark_bls12_377::Config>;
+
         let message = Message::new(b"ctx", b"I'd far rather be happy than right any day.");
         let mut keypairs: Vec<_> = (0..3)
             .into_iter()
@@ -27,7 +29,7 @@ fn main() {
             .collect();
         let pub_keys_in_sig_grp: Vec<PublicKeyInSignatureGroup<TinyBLS377>> = keypairs
             .iter()
-            .map(|k| k.into_public_key_in_signature_group())
+            .map(|k| NuggetBLS::<_, <EB as EngineBLS>::SignatureGroup>::into_public_key_in_signature_group(k))
             .collect();
         let mut prover_aggregator =
             SignatureAggregatorAssumingPoP::<TinyBLS377>::new(message.clone());
