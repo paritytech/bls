@@ -19,11 +19,13 @@ use ark_ec::{AffineRepr, CurveGroup};
 
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
+use digest::FixedOutputReset;
 use sha2::Sha256;
 
 use crate::chaum_pedersen_signature::{ChaumPedersenSigner, ChaumPedersenVerifier};
 use crate::nugget::{
-    NuggetPublicKeyScheme, NuggetSignature, NuggetSignedMessage, PublicKeyInSignatureGroup,
+    NuggetBLS, NuggetSignature, NuggetSignedMessage, PublicKeyInSignatureGroup,
+    PublicKeyInSisterGroup,
 };
 use crate::schnorr_pop::SchnorrProof;
 use crate::serialize::SerializableToBytes;
@@ -33,105 +35,81 @@ use crate::{EngineBLS, Message, Signed};
 
 /// BLS Public Key with sub keys in both groups.
 #[derive(Debug, Clone, CanonicalSerialize, CanonicalDeserialize)]
-pub struct DoublePublicKey<E: EngineBLS>(pub E::SignatureGroup, pub E::PublicKeyGroup);
+pub struct NuggetDoublePublicKey<E: EngineBLS>(pub E::SignatureGroup, pub E::PublicKeyGroup);
 
-/// The signature itself does not need to be aware of the sister curve
-/// as such it remains the same no matter what is the sister curve.
+pub trait DoubleNuggetBLS<E: EngineBLS>: NuggetBLS<E, E::SignatureGroup> {
+    /// Return a double public object containing public keys both in G1 and G2
+    fn into_nugget_double_public_key(&self) -> NuggetDoublePublicKey<E>;
+}
 
-impl<E: EngineBLS> DoublePublicKey<E>
+impl<E: EngineBLS, H: FixedOutputReset + Default + Clone>
+    ChaumPedersenVerifier<E, E::SignatureGroup, H> for NuggetDoublePublicKey<E>
 where
     E::SignatureGroup: SerializableToBytes,
 {
-    pub fn into_nugget_public_key(&self) -> NuggetPublicKey<E, E::SignatureGroup> {
-        NuggetPublicKey::<E, E::SignatureGroup>(self.0, self.1, self.0)
+}
+
+impl<E: EngineBLS> NuggetPublicKey<E, E::SignatureGroup> for NuggetDoublePublicKey<E>
+where
+    E::SignatureGroup: SerializableToBytes,
+{
+    fn into_public_key_in_signature_group(&self) -> PublicKeyInSignatureGroup<E> {
+        PublicKeyInSignatureGroup(self.0)
     }
 
-    pub fn verify(&self, message: &Message, signature: &NuggetSignature<E>) -> bool {
-        //TODO: This is not good. Instead there should be common
-        //trait which implement both NuggetPublickey and DoublePublickey
-        //implements and then NuggetSignature and ChumPedersenVerifier
-        //both rely on to verify. It should impement into_public_key_in_sig and sis group. instead of self.0 and self.2
-        signature.verify(message, &self.into_nugget_public_key())
+    fn into_bls_public_key(&self) -> PublicKey<E> {
+        PublicKey(self.1)
+    }
+
+    fn into_public_key_in_sister_group(&self) -> PublicKeyInSisterGroup<E::SignatureGroup> {
+        PublicKeyInSisterGroup(self.0)
+    }
+
+    fn verify(&self, message: &Message, signature: &NuggetSignature<E>) -> bool {
+        signature.verify::<E::SignatureGroup, Sha256, Self>(message, self)
     }
 }
 
 /// Serialization for DoublePublickey, We save one public key
-impl<E: EngineBLS> SerializableToBytes for DoublePublicKey<E> {
+impl<E: EngineBLS> SerializableToBytes for NuggetDoublePublicKey<E> {
     const SERIALIZED_BYTES_SIZE: usize =
         E::SIGNATURE_SERIALIZED_SIZE + E::PUBLICKEY_SERIALIZED_SIZE;
 }
 
-pub trait DoublePublicKeyScheme<E: EngineBLS> {
-    /// Returns the Public key in G1
-    fn into_public_key_in_signature_group(&self) -> PublicKeyInSignatureGroup<E>;
-
-    /// Return a double public object containing public keys both in G1 and G2
-    fn into_double_public_key(&self) -> DoublePublicKey<E>;
-
-    fn sign(&mut self, message: &Message) -> NuggetSignature<E>;
-}
-
-impl<E: EngineBLS> DoublePublicKeyScheme<E> for SecretKeyVT<E>
+impl<E: EngineBLS> DoubleNuggetBLS<E> for SecretKeyVT<E>
 where
     E::SignatureGroup: SerializableToBytes,
 {
-    /// Returns the Public key in G1
-    fn into_public_key_in_signature_group(&self) -> PublicKeyInSignatureGroup<E> {
-        NuggetPublicKeyScheme::<E, E::SignatureGroup>::into_public_key_in_signature_group(self)
-    }
-
-    fn into_double_public_key(&self) -> DoublePublicKey<E> {
-        DoublePublicKey(
-            DoublePublicKeyScheme::into_public_key_in_signature_group(self).0,
+    fn into_nugget_double_public_key(&self) -> NuggetDoublePublicKey<E> {
+        NuggetDoublePublicKey(
+            DoubleNuggetBLS::into_public_key_in_signature_group(self).0,
             self.into_public().0,
         )
     }
-
-    /// Sign a message using a Seedabale RNG created from a seed derived from the message and key
-    fn sign(&mut self, message: &Message) -> NuggetSignature<E> {
-        NuggetPublicKeyScheme::<E, E::SignatureGroup>::sign(self, message)
-    }
 }
 
-impl<E: EngineBLS> DoublePublicKeyScheme<E> for KeypairVT<E>
+impl<E: EngineBLS> DoubleNuggetBLS<E> for KeypairVT<E>
 where
     E::SignatureGroup: SerializableToBytes,
 {
-    fn into_public_key_in_signature_group(&self) -> PublicKeyInSignatureGroup<E> {
-        DoublePublicKeyScheme::<E>::into_public_key_in_signature_group(&self.secret)
-    }
-
-    fn into_double_public_key(&self) -> DoublePublicKey<E> {
-        self.secret.into_double_public_key()
-    }
-
-    /// Sign a message using a Seedabale RNG created from a seed derived from the message and key
-    fn sign(&mut self, message: &Message) -> NuggetSignature<E> {
-        DoublePublicKeyScheme::sign(&mut self.secret, message)
+    fn into_nugget_double_public_key(&self) -> NuggetDoublePublicKey<E> {
+        self.secret.into_nugget_double_public_key()
     }
 }
 
-impl<E: EngineBLS> DoublePublicKeyScheme<E> for Keypair<E>
+impl<E: EngineBLS> DoubleNuggetBLS<E> for Keypair<E>
 where
     E::SignatureGroup: SerializableToBytes,
 {
-    fn into_public_key_in_signature_group(&self) -> PublicKeyInSignatureGroup<E> {
-        DoublePublicKeyScheme::into_public_key_in_signature_group(&self.into_vartime())
-    }
-
-    fn into_double_public_key(&self) -> DoublePublicKey<E> {
-        self.into_vartime().into_double_public_key()
-    }
-
-    /// Sign a message using a Seedabale RNG created from a seed derived from the message and key
-    fn sign(&mut self, message: &Message) -> NuggetSignature<E> {
-        DoublePublicKeyScheme::sign(&mut self.into_vartime(), message)
+    fn into_nugget_double_public_key(&self) -> NuggetDoublePublicKey<E> {
+        self.into_vartime().into_nugget_double_public_key()
     }
 }
 
 /// Message with attached BLS signature
 ///
-type DoubleSignedMessage<E: EngineBLS> = NuggetSignedMessage<E, E::SignatureGroup>;
+type DoubleSignedMessage<E> =
+    NuggetSignedMessage<E, <E as EngineBLS>::SignatureGroup, NuggetDoublePublicKey<E>>;
 
 #[cfg(all(test, feature = "std"))]
 mod tests {
@@ -146,7 +124,7 @@ mod tests {
     use ark_ec::hashing::map_to_curve_hasher::MapToCurve;
     use ark_ec::pairing::Pairing as PairingEngine;
 
-    use crate::{EngineBLS, Message, TinyBLS};
+    use crate::{serialize::SerializableToBytes, EngineBLS, Message, TinyBLS};
 
     fn double_public_serialization_test<
         EB: EngineBLS<Engine = E>,
@@ -158,6 +136,7 @@ mod tests {
     where
         <P as Bls12Config>::G2Config: WBConfig,
         WBMap<<P as Bls12Config>::G2Config>: MapToCurve<<E as PairingEngine>::G2>,
+        EB::SignatureGroup: SerializableToBytes,
     {
         let DoubleSignedMessage {
             message,
@@ -165,9 +144,10 @@ mod tests {
             signature,
         } = x;
 
-        let publickey = DoublePublicKey::<EB>::from_bytes(&publickey.to_bytes()).unwrap();
+        let publickey = NuggetDoublePublicKey::<EB>::from_bytes(&publickey.to_bytes()).unwrap();
         let signature = NuggetSignature::<EB>::from_bytes(&signature.to_bytes()).unwrap();
 
+        let publickey = publickey.into_nugget_public_key();
         DoubleSignedMessage {
             message,
             publickey,
@@ -183,12 +163,13 @@ mod tests {
     where
         <P as Bls12Config>::G2Config: WBConfig,
         WBMap<<P as Bls12Config>::G2Config>: MapToCurve<<E as PairingEngine>::G2>,
+        EB::SignatureGroup: SerializableToBytes,
     {
         let good = Message::new(b"ctx", b"test message");
 
         let mut keypair = Keypair::<EB>::generate(thread_rng());
-        let public_key = DoublePublicKeyScheme::into_double_public_key(&mut keypair);
-        let good_sig = DoublePublicKeyScheme::sign(&mut keypair, &good);
+        let public_key = DoubleNuggetBLS::into_nugget_double_public_key(&mut keypair);
+        let good_sig = DoubleNuggetBLS::sign(&mut keypair, &good);
 
         assert!(
             public_key.verify(&good, &good_sig),
@@ -196,11 +177,11 @@ mod tests {
         );
 
         let bad = Message::new(b"ctx", b"wrong message");
-        let bad_sig = DoublePublicKeyScheme::sign(&mut keypair, &bad);
+        let bad_sig = DoubleNuggetBLS::sign(&mut keypair, &bad);
 
         assert!(bad_sig.verify(
             &bad,
-            &DoublePublicKeyScheme::into_double_public_key(&keypair)
+            &DoubleNuggetBLS::into_nugget_double_public_key(&keypair)
         ));
 
         assert!(good != bad, "good == bad");
@@ -209,14 +190,14 @@ mod tests {
         assert!(
             !bad_sig.verify(
                 &good,
-                &DoublePublicKeyScheme::into_double_public_key(&keypair)
+                &DoubleNuggetBLS::into_nugget_double_public_key(&keypair)
             ),
             "Verification of a signature on a different message passed!"
         );
         assert!(
             !good_sig.verify(
                 &bad,
-                &DoublePublicKeyScheme::into_double_public_key(&keypair)
+                &DoubleNuggetBLS::into_nugget_double_public_key(&keypair)
             ),
             "Verification of a signature on a different message passed!"
         );
@@ -227,11 +208,11 @@ mod tests {
         let mut keypair =
             Keypair::<TinyBLS<Bls12_377, ark_bls12_377::Config>>::generate(thread_rng());
         let message = Message::new(b"ctx", b"test message");
-        let good_sig0 = DoublePublicKeyScheme::sign(&mut keypair, &message);
+        let good_sig0 = DoubleNuggetBLS::sign(&mut keypair, &message);
 
         let signed_message = DoubleSignedMessage {
             message: message,
-            publickey: DoublePublicKey(
+            publickey: NuggetDoublePublicKey(
                 keypair.into_public_key_in_signature_group().0,
                 keypair.public.0,
             ),
@@ -260,11 +241,11 @@ mod tests {
         let mut keypair =
             Keypair::<TinyBLS<Bls12_381, ark_bls12_381::Config>>::generate(thread_rng());
         let message = Message::new(b"ctx", b"test message");
-        let good_sig0 = DoublePublicKeyScheme::sign(&mut keypair, &message);
+        let good_sig0 = DoubleNuggetBLS::sign(&mut keypair, &message);
 
         let signed_message = DoubleSignedMessage {
             message: message,
-            publickey: DoublePublicKey(
+            publickey: NuggetDoublePublicKey(
                 keypair.into_public_key_in_signature_group().0,
                 keypair.public.0,
             ),

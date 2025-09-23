@@ -7,7 +7,7 @@ use digest::FixedOutputReset;
 
 use crate::engine::EngineBLS;
 use crate::nugget::{
-    NuggetPublicKey, NuggetPublicKeyScheme, PublicKeyInSignatureGroup, PublicKeyInSisterGroup,
+    NuggetBLS, NuggetPublicKey, PublicKeyInSignatureGroup, PublicKeyInSisterGroup,
 };
 use crate::schnorr_pop::SchnorrProof;
 use crate::serialize::SerializableToBytes;
@@ -39,15 +39,52 @@ where
 }
 
 /// This should be implemented by public key
-pub trait ChaumPedersenVerifier<E: EngineBLS, S: CurveGroup, H: FixedOutputReset + Default + Clone>
-where
+pub trait ChaumPedersenVerifier<
+    E: EngineBLS,
+    S: CurveGroup + SerializableToBytes,
+    H: FixedOutputReset + Default + Clone,
+>: NuggetPublicKey<E, S> where
     S: PrimeGroup<ScalarField = E::Scalar>,
 {
     fn verify_cp_signature(
         &self,
         message: &Message,
         signature_proof: ChaumPedersenSignature<E>,
-    ) -> bool;
+    ) -> bool {
+        let signature_as_scalars_of_sister_group: (S::ScalarField, S::ScalarField) =
+            (signature_proof.1 .0, signature_proof.1 .1);
+        let A_check_point = <S as PrimeGroup>::generator() * signature_as_scalars_of_sister_group.1
+            + self.into_public_key_in_sister_group().0 * signature_as_scalars_of_sister_group.0;
+
+        let B_check_point = message.hash_to_signature_curve::<E>() * signature_proof.1 .1
+            + signature_proof.0 .0 * signature_proof.1 .0;
+
+        let A_point_as_bytes = A_check_point.to_bytes();
+        let B_point_as_bytes = E::signature_point_to_byte(&B_check_point);
+
+        let signature_point_as_bytes = signature_proof.0.to_bytes();
+        let message_point_as_bytes =
+            E::signature_point_to_byte(&message.hash_to_signature_curve::<E>());
+        let public_key_in_signature_group_as_bytes =
+            E::signature_point_to_byte(&self.into_public_key_in_signature_group().0);
+
+        let resulting_proof_basis = [
+            message_point_as_bytes,
+            public_key_in_signature_group_as_bytes,
+            signature_point_as_bytes,
+            A_point_as_bytes,
+            B_point_as_bytes,
+        ]
+        .concat();
+
+        let hasher = <DefaultFieldHasher<H> as HashToField<
+            <<E as EngineBLS>::PublicKeyGroup as PrimeGroup>::ScalarField,
+        >>::new(&[]);
+        let c_check: <<E as EngineBLS>::PublicKeyGroup as PrimeGroup>::ScalarField =
+            hasher.hash_to_field::<1>(resulting_proof_basis.as_slice())[0];
+
+        c_check == signature_proof.1 .0
+    }
 }
 
 impl<E: EngineBLS, S: CurveGroup, H: FixedOutputReset + Default + Clone>
@@ -80,7 +117,7 @@ where
         let signature_point_as_bytes = E::signature_point_to_byte(&signature_point);
         let message_point_as_bytes = E::signature_point_to_byte(&message_point);
         let public_key_in_signature_group_as_bytes = E::signature_point_to_byte(
-            &NuggetPublicKeyScheme::<E, S>::into_public_key_in_signature_group(self).0,
+            &NuggetBLS::<E, S>::into_public_key_in_signature_group(self).0,
         );
 
         let mut k = <SecretKeyVT<E> as ChaumPedersenSigner<E, S, H>>::generate_witness_scaler(
@@ -131,50 +168,5 @@ where
         >>::new(&[]);
         let scalar_seed = [hashed_secret_key, message_point_as_bytes.clone()].concat();
         hasher.hash_to_field::<1>(scalar_seed.as_slice())[0]
-    }
-}
-
-/// This should be implemented by public key
-#[allow(non_snake_case)]
-impl<E: EngineBLS, S: CurveGroup, H: FixedOutputReset + Default + Clone>
-    ChaumPedersenVerifier<E, S, H> for NuggetPublicKey<E, S>
-where
-    S: PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes,
-{
-    fn verify_cp_signature(
-        &self,
-        message: &Message,
-        signature_proof: ChaumPedersenSignature<E>,
-    ) -> bool {
-        let A_check_point =
-            <S as PrimeGroup>::generator() * signature_proof.1 .1 + self.2 * signature_proof.1 .0;
-
-        let B_check_point = message.hash_to_signature_curve::<E>() * signature_proof.1 .1
-            + signature_proof.0 .0 * signature_proof.1 .0;
-
-        let A_point_as_bytes = A_check_point.to_bytes();
-        let B_point_as_bytes = E::signature_point_to_byte(&B_check_point);
-
-        let signature_point_as_bytes = signature_proof.0.to_bytes();
-        let message_point_as_bytes =
-            E::signature_point_to_byte(&message.hash_to_signature_curve::<E>());
-        let public_key_in_signature_group_as_bytes = E::signature_point_to_byte(&self.0);
-
-        let resulting_proof_basis = [
-            message_point_as_bytes,
-            public_key_in_signature_group_as_bytes,
-            signature_point_as_bytes,
-            A_point_as_bytes,
-            B_point_as_bytes,
-        ]
-        .concat();
-
-        let hasher = <DefaultFieldHasher<H> as HashToField<
-            <<E as EngineBLS>::PublicKeyGroup as PrimeGroup>::ScalarField,
-        >>::new(&[]);
-        let c_check: <<E as EngineBLS>::PublicKeyGroup as PrimeGroup>::ScalarField =
-            hasher.hash_to_field::<1>(resulting_proof_basis.as_slice())[0];
-
-        c_check == signature_proof.1 .0
     }
 }

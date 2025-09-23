@@ -43,6 +43,8 @@ use sha2::Sha256; //IETF standard asks for SHA256
 use ark_ec::bls12::Bls12Config;
 use core::marker::PhantomData;
 
+use crate::SerializableToBytes;
+
 // Expand SHA256 from 256 bits to 1024 bits.
 // let output_bits = 1024;
 // let output_bytes = 1024 / 8;
@@ -438,3 +440,12 @@ impl CurveExtraConfig for ark_bls12_381::Config {
     const CURVE_NAME: &'static [u8] = b"BLS12381";
 }
 pub type TinyBLS381 = TinyBLS<ark_bls12_381::Bls12_381, ark_bls12_381::Config>;
+
+// This is necessary to use the signature group as an abstract Elliptic group for Chaum Pederesen Signer and Verifier
+impl SerializableToBytes for ark_ec::short_weierstrass::Projective<ark_bls12_377::g1::Config> {
+    const SERIALIZED_BYTES_SIZE: usize = TinyBLS377::SIGNATURE_SERIALIZED_SIZE;
+}
+
+impl SerializableToBytes for ark_ec::short_weierstrass::Projective<ark_bls12_381::g1::Config> {
+    const SERIALIZED_BYTES_SIZE: usize = TinyBLS381::SIGNATURE_SERIALIZED_SIZE;
+}

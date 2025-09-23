@@ -297,7 +297,12 @@ mod tests {
             .collect();
         let pub_keys_in_sig_grp: Vec<PublicKeyInSignatureGroup<TinyBLS377>> = keypairs
             .iter()
-            .map(|k| k.into_public_key_in_signature_group())
+            .map(|k| {
+                nugget::NuggetBLS::<
+                    TinyBLS<Bls12_377, ark_bls12_377::Config>,
+                    <TinyBLS<Bls12_377, ark_bls12_377::Config> as EngineBLS>::SignatureGroup,
+                >::into_public_key_in_signature_group(k)
+            })
             .collect();
 
         let mut aggregator = SignatureAggregatorAssumingPoP::<TinyBLS377>::new(message.clone());
@@ -324,8 +329,12 @@ mod tests {
         );
 
         //false aggregation in signature group should fails verification.
-        verifier_aggregator
-            .add_auxiliary_public_key(&keypairs[0].into_public_key_in_signature_group());
+        verifier_aggregator.add_auxiliary_public_key(&nugget::NuggetBLS::<
+            TinyBLS<Bls12_377, ark_bls12_377::Config>,
+            <TinyBLS<Bls12_377, ark_bls12_377::Config> as EngineBLS>::SignatureGroup,
+        >::into_public_key_in_signature_group(
+            &keypairs[0]
+        ));
         assert!(
             !verifier_aggregator.verify_using_aggregated_auxiliary_public_keys::<Sha256>(),
             "verification using non-matching auxilary public key should fail"
