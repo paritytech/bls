@@ -1,7 +1,10 @@
+#![feature(test)]
+
 extern crate test;
 
 const NO_OF_MULTI_SIG_SIGNERS : usize = 10000;
 use test::{Bencher, black_box};
+use ark_ed_by_bls12_381;
 
     // #[bench]
     // fn only_generate_key_pairs(b: &mut Bencher) {
@@ -107,17 +110,31 @@ use test::{Bencher, black_box};
         });                                            
     }
 
-    //#[bench]
-    fn test_bls_verify_many_signatures_chaum_pedersen(b: &mut Bencher) {
-        let mut keypair = Keypair::<TinyBLS377>::generate(thread_rng());
+    #[bench]
+    fn test_bls_verify_many_signatures_chaum_pedersen_in_signature_group(b: &mut Bencher) {
+        let mut keypair = Keypair::<TinyBLS381>::generate(thread_rng());
         let message = Message::new(b"ctx",b"test message");
 
-        let sig = <Keypair<TinyBLS377> as ChaumPedersenSigner<TinyBLS377, Sha256>>::generate_cp_signature(&mut keypair, message);
+        let sig = <Keypair<TinyBLS381> as ChaumPedersenSigner<TinyBLS381, Sha256>>::generate_cp_signature(&mut keypair, message);
         let public_key_in_sig_group = keypair.into_public_key_in_signature_group();
 
 	b.iter(||
                for i in 1..NO_OF_MULTI_SIG_SIGNERS {
-		   assert!(<PublicKeyInSignatureGroup<TinyBLS377> as ChaumPedersenVerifier<TinyBLS377, Sha256>>::verify_cp_signature(&public_key_in_sig_group, message,sig));
+		           assert!(<PublicKeyInSignatureGroup<TinyBLS377> as ChaumPedersenVerifier<TinyBLS381, Sha256, TinyBLS381::SignatureGroup>>::verify_cp_signature(&public_key_in_sig_group, message,sig));
+        });
+    }
+
+    #[bench]
+    fn test_bls_verify_many_signatures_chaum_pedersen_in_sister_group(b: &mut Bencher) {
+        let mut keypair = Keypair::<TinyBLS377>::generate(thread_rng());
+        let message = Message::new(b"ctx",b"test message");
+
+        let sig = <Keypair<TinyBLS377> as ChaumPedersenSigner<TinyBLS377, Sha256>>::generate_cp_signature(&mut keypair, message);
+        let public_key_in_sister = keypair.into_public_key_in_sister_group();
+
+	b.iter(||
+               for i in 1..NO_OF_MULTI_SIG_SIGNERS {
+		   assert!(<PublicKeyInSignatureGroup<TinyBLS381> as ChaumPedersenVerifier<TinyBLS381, Sha256, twisted_edwards::Projective<ark_ed_by_bls12_381::EdwardsConfig>>>::verify_cp_signature(&public_key_in_sig_group, message,sig));
         });
     }
 
@@ -134,6 +151,7 @@ use test::{Bencher, black_box};
         });
 
     }
+
     //#[bench]
     fn test_scalar_multiplication(b: &mut Bencher) {
         let mut keypair1 = Keypair::<TinyBLS377>::generate(thread_rng());
