@@ -2,8 +2,8 @@
 use sha2::Sha256;
 #[cfg(feature = "std")]
 use w3f_bls::{
-    single_pop_aggregator::SignatureAggregatorAssumingPoP, NuggetBLS, EngineBLS,
-    Keypair, Message, PublicKey, PublicKeyInSignatureGroup, Signed, TinyBLS, TinyBLS377,
+    single_pop_aggregator::SignatureAggregatorAssumingPoP, EngineBLS, Keypair, Message, NuggetBLS,
+    PublicKey, PublicKeyInSignatureGroup, Signed, TinyBLS, TinyBLS377,
 };
 
 #[cfg(feature = "std")]

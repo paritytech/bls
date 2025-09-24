@@ -5,10 +5,9 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use digest::FixedOutputReset;
 use sha2::Sha256;
 
-use crate::chaum_pedersen_signature::{ChaumPedersenVerifier};
+use crate::chaum_pedersen_signature::ChaumPedersenVerifier;
 use crate::nugget::{
-    NuggetBLS, NuggetPublicKey, NuggetSignature, PublicKeyInSignatureGroup,
-    PublicKeyInSisterGroup,
+    NuggetBLS, NuggetPublicKey, NuggetSignature, PublicKeyInSignatureGroup, PublicKeyInSisterGroup,
 };
 use crate::serialize::SerializableToBytes;
 use crate::single::{Keypair, KeypairVT, PublicKey, SecretKeyVT};
@@ -183,7 +182,7 @@ mod tests {
     //         twisted_edwards::Projective<ark_ed_by_bls12_381::EdwardsConfig>,
     //         Bls12_377,
     //         ark_bls12_377::Config,
-            
+
     //     >();
     // }
 
@@ -200,5 +199,4 @@ mod tests {
             ark_bls12_381::Config,
         >();
     }
-
 }

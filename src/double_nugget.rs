@@ -19,14 +19,14 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use digest::FixedOutputReset;
 use sha2::Sha256;
 
-use crate::chaum_pedersen_signature::{ChaumPedersenVerifier};
+use crate::chaum_pedersen_signature::ChaumPedersenVerifier;
 use crate::nugget::{
     NuggetBLS, NuggetSignature, NuggetSignedMessage, PublicKeyInSignatureGroup,
     PublicKeyInSisterGroup,
 };
 use crate::serialize::SerializableToBytes;
 use crate::single::{Keypair, KeypairVT, PublicKey, SecretKeyVT};
-use crate::{NuggetPublicKey};
+use crate::NuggetPublicKey;
 use crate::{EngineBLS, Message};
 
 /// BLS Public Key with sub keys in both groups.
@@ -122,7 +122,7 @@ mod tests {
     use ark_ec::hashing::map_to_curve_hasher::MapToCurve;
     use ark_ec::pairing::Pairing as PairingEngine;
 
-    use crate::{serialize::SerializableToBytes, EngineBLS, Message, TinyBLS, Signed};
+    use crate::{serialize::SerializableToBytes, EngineBLS, Message, Signed, TinyBLS};
 
     fn double_public_serialization_test<
         EB: EngineBLS<Engine = E>,
@@ -168,7 +168,8 @@ mod tests {
 
         let mut keypair = Keypair::<EB>::generate(thread_rng());
         let public_key = DoubleNuggetBLS::into_nugget_double_public_key(&mut keypair);
-        let good_sig = <Keypair<EB> as NuggetBLS::<EB, EB::SignatureGroup>>::sign(&mut keypair, &good);
+        let good_sig =
+            <Keypair<EB> as NuggetBLS<EB, EB::SignatureGroup>>::sign(&mut keypair, &good);
 
         assert!(
             public_key.verify(&good, &good_sig),
@@ -176,7 +177,7 @@ mod tests {
         );
 
         let bad = Message::new(b"ctx", b"wrong message");
-        let bad_sig = <Keypair<EB> as NuggetBLS::<EB, EB::SignatureGroup>>::sign(&mut keypair, &bad);
+        let bad_sig = <Keypair<EB> as NuggetBLS<EB, EB::SignatureGroup>>::sign(&mut keypair, &bad);
 
         assert!(bad_sig.verify::<_, Sha256, _>(
             &bad,
@@ -205,10 +206,12 @@ mod tests {
     #[test]
     fn test_double_public_key_double_signature_serialization_for_bls12_377() {
         type EB = TinyBLS<Bls12_377, ark_bls12_377::Config>;
-        let mut keypair =
-            Keypair::<EB>::generate(thread_rng());
+        let mut keypair = Keypair::<EB>::generate(thread_rng());
         let message = Message::new(b"ctx", b"test message");
-        let good_sig0 = <Keypair<_> as NuggetBLS::<_,<EB as EngineBLS>::SignatureGroup>>::sign(&mut keypair, &message);
+        let good_sig0 = <Keypair<_> as NuggetBLS<_, <EB as EngineBLS>::SignatureGroup>>::sign(
+            &mut keypair,
+            &message,
+        );
 
         let signed_message = DoubleSignedMessage {
             message: message,
@@ -236,12 +239,14 @@ mod tests {
 
     #[test]
     fn test_double_public_key_double_signature_serialization_for_bls12_381() {
-         type EB = TinyBLS<Bls12_381, ark_bls12_381::Config>;
+        type EB = TinyBLS<Bls12_381, ark_bls12_381::Config>;
 
-        let mut keypair =
-            Keypair::<EB>::generate(thread_rng());
+        let mut keypair = Keypair::<EB>::generate(thread_rng());
         let message = Message::new(b"ctx", b"test message");
-        let good_sig0 = <Keypair<_> as NuggetBLS::<_, <EB as EngineBLS>::SignatureGroup>>::sign(&mut keypair, &message);
+        let good_sig0 = <Keypair<_> as NuggetBLS<_, <EB as EngineBLS>::SignatureGroup>>::sign(
+            &mut keypair,
+            &message,
+        );
 
         let signed_message = DoubleSignedMessage {
             message: message,

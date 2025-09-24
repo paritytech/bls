@@ -2,7 +2,7 @@
 use sha2::Sha256;
 #[cfg(feature = "std")]
 use w3f_bls::{
-    NuggetDoublePublicKey, Keypair, NuggetBLSPoP, NuggetBLSnCPPoP, ProofOfPossessionGenerator,
+    Keypair, NuggetBLSPoP, NuggetBLSnCPPoP, NuggetDoublePublicKey, ProofOfPossessionGenerator,
     SerializableToBytes, TinyBLS381,
 };
 

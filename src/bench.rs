@@ -1,7 +1,7 @@
 extern crate test;
 
 const NO_OF_MULTI_SIG_SIGNERS : usize = 10000;
-    use test::{Bencher, black_box};
+use test::{Bencher, black_box};
 
     // #[bench]
     // fn only_generate_key_pairs(b: &mut Bencher) {
