@@ -33,6 +33,8 @@ use crate::{EngineBLS, Message, Signed};
 pub struct PublicKeyInSignatureGroup<E: EngineBLS>(pub E::SignatureGroup);
 broken_derives!(PublicKeyInSignatureGroup); // Actually the derive works for this one, not sure why.
 
+//TODO: Make a type for a sister group. This makes sense because SisterGroup it doesn't mean on itself
+// SisterGroup<E: EngineBLS> = CurveGroup + PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes
 /// Wrapper for a point in the third curve sister group which is supposed to
 /// have the same logarithm as the public key in the public key group
 #[derive(Debug, Clone, Copy, PartialEq, Eq, CanonicalDeserialize)]
@@ -48,6 +50,8 @@ pub trait NuggetPublicKey<
     fn into_bls_public_key(&self) -> PublicKey<E>;
 
     fn into_public_key_in_sister_group(&self) -> PublicKeyInSisterGroup<S>;
+
+    fn sister_gen_plus_public_key(&self) -> S;
 
     fn verify(&self, message: &Message, signature: &NuggetSignature<E>) -> bool;
 }
@@ -80,9 +84,7 @@ where
 
     /// Sign a message using a Seedabale RNG created from a seed derived from the message and key
     fn sign(&mut self, message: &Message) -> NuggetSignature<E> {
-        let chaum_pedersen_signature =
-            ChaumPedersenSigner::<E, S, Sha256>::generate_cp_signature(self, &message);
-        NuggetSignature(chaum_pedersen_signature.0 .0, chaum_pedersen_signature.1)
+        ChaumPedersenSigner::<E, S, Sha256>::generate_cp_signature(self, &message)
     }
 }
 
@@ -142,7 +144,7 @@ impl<E: EngineBLS> NuggetSignature<E> {
     where
         S: PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes,
     {
-        publickey.verify_cp_signature(message, (Signature(self.0), self.1))
+        publickey.verify_cp_signature(message, self)
     }
 }
 
@@ -224,7 +226,7 @@ where
         ChaumPedersenVerifier::<E, S, Sha256>::verify_cp_signature(
             &self.publickey,
             &self.message,
-            (Signature(self.signature.0), self.signature.1),
+            &self.signature,
         )
     }
 }

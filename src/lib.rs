@@ -80,11 +80,13 @@
 //!
 //!
 
-#![feature(test)] //needed for cargo bench
+//#![feature(test)] //needed for cargo bench
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg_attr(feature = "std", doc = include_str!("../README.md"))]
 #[cfg(doctest)]
 pub struct ReadmeDoctests;
+
+//pub mod bench;
 
 extern crate ark_serialize;
 extern crate ark_serialize_derive;
@@ -102,7 +104,6 @@ extern crate alloc;
 use core::borrow::Borrow;
 use digest::DynDigest;
 
-use bench;
 pub mod chaum_pedersen_signature;
 pub mod double_nugget;
 pub mod engine;

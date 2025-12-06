@@ -445,7 +445,7 @@ impl<E: EngineBLS> SerializableToBytes for SecretKey<E> {
 
 /// because SecretKey is not canonically serializable and that we need to convert
 /// it to vartime first we need to manually re-implement this trait for secret keys
-//, CanonicalSerialize, CanonicalDeserialize)]
+/// , CanonicalSerialize, CanonicalDeserialize
 /// Detached BLS Signature
 #[derive(Debug, CanonicalSerialize, CanonicalDeserialize)]
 pub struct Signature<E: EngineBLS>(pub E::SignatureGroup);

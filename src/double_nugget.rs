@@ -14,6 +14,7 @@
 
 use alloc::vec::Vec;
 
+use ark_ec::PrimeGroup;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 use digest::FixedOutputReset;
@@ -30,8 +31,14 @@ use crate::NuggetPublicKey;
 use crate::{EngineBLS, Message};
 
 /// BLS Public Key with sub keys in both groups.
+/// it also stores signature group generator plus public key for Strauss-Shamir
+/// speed up.
 #[derive(Debug, Clone, CanonicalSerialize, CanonicalDeserialize)]
-pub struct NuggetDoublePublicKey<E: EngineBLS>(pub E::SignatureGroup, pub E::PublicKeyGroup);
+pub struct NuggetDoublePublicKey<E: EngineBLS>(
+    pub E::SignatureGroup,
+    pub E::PublicKeyGroup,
+    pub E::SignatureGroup,
+);
 
 pub trait DoubleNuggetBLS<E: EngineBLS>: NuggetBLS<E, E::SignatureGroup> {
     /// Return a double public object containing public keys both in G1 and G2
@@ -61,6 +68,10 @@ where
         PublicKeyInSisterGroup(self.0)
     }
 
+    fn sister_gen_plus_public_key(&self) -> E::SignatureGroup {
+        self.2
+    }
+
     fn verify(&self, message: &Message, signature: &NuggetSignature<E>) -> bool {
         signature.verify::<E::SignatureGroup, Sha256, Self>(message, self)
     }
@@ -80,6 +91,8 @@ where
         NuggetDoublePublicKey(
             <SecretKeyVT<E> as NuggetBLS::<E, E::SignatureGroup>>::into_public_key_in_signature_group(self).0,
             self.into_public().0,
+            <E::SignatureGroup as PrimeGroup>::generator() +  <SecretKeyVT<E> as NuggetBLS::<E, E::SignatureGroup>>::into_public_key_in_signature_group(self).0
+
         )
     }
 }
@@ -124,7 +137,7 @@ mod tests {
 
     use crate::{serialize::SerializableToBytes, EngineBLS, Message, Signed, TinyBLS};
 
-    fn double_public_serialization_test<
+    fn double_nugget_public_key_serialization_test<
         EB: EngineBLS<Engine = E>,
         E: PairingEngine,
         P: Bls12Config,
@@ -225,7 +238,7 @@ mod tests {
             "valid double signed message should verify"
         );
 
-        let deserialized_signed_message = double_public_serialization_test::<
+        let deserialized_signed_message = double_nugget_public_key_serialization_test::<
             TinyBLS<Bls12_377, ark_bls12_377::Config>,
             Bls12_377,
             ark_bls12_377::Config,
@@ -260,7 +273,7 @@ mod tests {
             "valid double signed message should verify"
         );
 
-        let deserialized_signed_message = double_public_serialization_test::<
+        let deserialized_signed_message = double_nugget_public_key_serialization_test::<
             TinyBLS<Bls12_381, ark_bls12_381::Config>,
             Bls12_381,
             ark_bls12_381::Config,
