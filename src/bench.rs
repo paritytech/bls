@@ -14,18 +14,18 @@ use crate::PublicKeyInSignatureGroup;
 use crate::Signed;
 use crate::{CurveExtraConfig, TinyBLS377, TinyBLS381, UsualBLS};
 use crate::{EngineBLS, PublicKey};
+use ark_bls12_381_g1;
 use ark_ec::twisted_edwards;
 use ark_ec::{CurveConfig, CurveGroup};
 use ark_ed_by_bls12_381;
 use ark_sw_by_bls12_381;
-use ark_bls12_381_g1;
 use sha2::Sha256;
 use test::{black_box, Bencher};
 
-use rand::thread_rng;
-use ark_ec::PrimeGroup;
 use ark_ec::AdditiveGroup;
+use ark_ec::PrimeGroup;
 use ark_ff::UniformRand;
+use rand::thread_rng;
 // #[bench]
 // fn only_generate_key_pairs(b: &mut Bencher) {
 //     b.iter(|| {
@@ -156,200 +156,271 @@ fn test_bls_verify_many_signatures_chaum_pedersen_in_signature_group(b: &mut Ben
 }
 
 //#[bench]
-fn test_bls_verify_many_signatures_chaum_pedersen_in_edwards_sister_group(b: &mut Bencher) {
-    let mut keypair = Keypair::<TinyBLS381>::generate(thread_rng());
-    let message = Message::new(b"ctx", b"test message");
+// fn test_bls_verify_many_signatures_chaum_pedersen_in_edwards_sister_group(b: &mut Bencher) {
+//     let mut keypair = Keypair::<TinyBLS381>::generate(thread_rng());
+//     let message = Message::new(b"ctx", b"test message");
 
-    let sig = <Keypair<TinyBLS381> as NuggetBLS<
-        TinyBLS381,
-        ark_ed_by_bls12_381::EdwardsProjective,
-    >>::sign(&mut keypair, &message);
-    let triple_nugget_public_key: NuggetTriplePublicKey<_, ark_ed_by_bls12_381::EdwardsProjective> =
-        keypair.into_nugget_triple_public_key();
+//     let sig = <Keypair<TinyBLS381> as NuggetBLS<
+//         TinyBLS381,
+//         ark_ed_by_bls12_381::EdwardsProjective,
+//     >>::sign(&mut keypair, &message);
+//     let triple_nugget_public_key: NuggetTriplePublicKey<_, ark_ed_by_bls12_381::EdwardsProjective> =
+//         keypair.into_nugget_triple_public_key();
 
-    b.iter(|| {
-        for i in 1..NO_OF_MULTI_SIG_SIGNERS {
-            assert!(<NuggetTriplePublicKey<
-                TinyBLS381,
-                ark_ed_by_bls12_381::EdwardsProjective,
-            > as ChaumPedersenVerifier<
-                TinyBLS381,
-                ark_ed_by_bls12_381::EdwardsProjective,
-                Sha256,
-            >>::verify_cp_signature(
-                &triple_nugget_public_key, &message, &sig
-            ));
-        }
-    });
-}
+//     b.iter(|| {
+//         for i in 1..NO_OF_MULTI_SIG_SIGNERS {
+//             assert!(<NuggetTriplePublicKey<
+//                 TinyBLS381,
+//                 ark_ed_by_bls12_381::EdwardsProjective,
+//             > as ChaumPedersenVerifier<
+//                 TinyBLS381,
+//                 ark_ed_by_bls12_381::EdwardsProjective,
+//                 Sha256,
+//             >>::verify_cp_signature(
+//                 &triple_nugget_public_key, &message, &sig
+//             ));
+//         }
+//     });
+// }
 
 //#[bench]
-fn test_bls_verify_many_signatures_chaum_pedersen_in_weierstrass_sister_group(b: &mut Bencher) {
-    let mut keypair = Keypair::<TinyBLS381>::generate(thread_rng());
+// fn test_bls_verify_many_signatures_chaum_pedersen_in_weierstrass_sister_group(b: &mut Bencher) {
+//     let mut keypair = Keypair::<TinyBLS381>::generate(thread_rng());
+//     let message = Message::new(b"ctx", b"test message");
+
+//     let sig =
+//         <Keypair<TinyBLS381> as NuggetBLS<TinyBLS381, ark_sw_by_bls12_381::SWProjective>>::sign(
+//             &mut keypair,
+//             &message,
+//         );
+//     let triple_nugget_public_key: NuggetTriplePublicKey<_, ark_sw_by_bls12_381::SWProjective> =
+//         keypair.into_nugget_triple_public_key();
+
+//     b.iter(|| {
+//         for i in 1..NO_OF_MULTI_SIG_SIGNERS {
+//             assert!(<NuggetTriplePublicKey<
+//                 TinyBLS381,
+//                 ark_sw_by_bls12_381::SWProjective,
+//             > as ChaumPedersenVerifier<
+//                 TinyBLS381,
+//                 ark_sw_by_bls12_381::SWProjective,
+//                 Sha256,
+//             >>::verify_cp_signature(
+//                 &triple_nugget_public_key, &message, &sig
+//             ));
+//         }
+//     });
+// }
+
+// #[bench]
+// fn test_scalar_mul_in_signature_group(b: &mut Bencher) {
+//     let mut gen = <<TinyBLS381 as EngineBLS>::SignatureGroup as PrimeGroup>::generator();
+//     b.iter(|| {
+//         let mut random_scalar = TinyBLS381::generate(&mut thread_rng());
+
+//         for _i in 1..NO_OF_MULTI_SIG_SIGNERS {
+//             gen *= random_scalar;
+//         }
+//         println!("result = {gen}")
+//     });
+// }
+
+// #[bench]
+// fn test_scalar_mul_in_signature_group_no_glv_no_mul_by_a(b: &mut Bencher) {
+//     let mut gen = <ark_bls12_381_g1::SWProjective as PrimeGroup>::generator();
+
+//     b.iter(|| {
+//         let mut random_scalar = <ark_bls12_381_g1::SWProjective as PrimeGroup>::ScalarField::rand(&mut thread_rng());
+
+//         for _i in 1..NO_OF_MULTI_SIG_SIGNERS {
+//              gen *= random_scalar;
+//         }
+//         println!("result = {gen}")
+//     });
+// }
+
+// #[bench]
+// fn test_scalar_mul_in_weirestarss_sister_group(b: &mut Bencher) {
+
+//     let mut gen = <ark_sw_by_bls12_381::SWProjective as PrimeGroup>::generator();
+//     b.iter(|| {
+
+//         let mut random_scalar = <ark_sw_by_bls12_381::SWProjective as PrimeGroup>::ScalarField::rand(&mut thread_rng());
+
+//         for _i in 1..NO_OF_MULTI_SIG_SIGNERS {
+//              gen *= random_scalar;
+//         }
+//         println!("result = {gen}")
+//     });
+// }
+
+// #[bench]
+// fn test_add_in_signature_group_no_glv_no_mul_by_a(b: &mut Bencher) {
+//     let mut gen = <ark_bls12_381_g1::SWProjective as PrimeGroup>::generator();
+
+//     let mut random_point = loop {
+//         let mut r1 = <ark_bls12_381_g1::SWConfig as CurveConfig>::BaseField::rand(&mut thread_rng());
+//         let mut random_point = ark_bls12_381_g1::SWAffine::get_point_from_x_unchecked(r1, false);
+//         if random_point != None {
+//             break random_point.unwrap();
+//         }
+
+//     };
+//     b.iter(|| {
+//         for _i in 1..NO_OF_MULTI_SIG_SIGNERS {
+//              gen += random_point;
+//         }
+//         println!("result = {gen}")
+//     });
+// }
+
+// #[bench]
+// fn test_add_in_weirestarss_sister_group(b: &mut Bencher) {
+
+//     let mut gen = <ark_sw_by_bls12_381::SWProjective as PrimeGroup>::generator();
+//     let mut random_point = loop {
+//         let mut r1 = <ark_sw_by_bls12_381::SWConfig as CurveConfig>::BaseField::rand(&mut thread_rng());
+//         let mut random_point = ark_sw_by_bls12_381::SWAffine::get_point_from_x_unchecked(r1, false);
+//         if random_point != None {
+//             break random_point.unwrap();
+//         }
+
+//     };
+
+//     b.iter(|| {
+
+//         for _i in 1..NO_OF_MULTI_SIG_SIGNERS {
+//              gen += random_point;
+//         }
+//         println!("result = {gen}")
+//     });
+// }
+
+// #[bench]
+// fn test_double_in_signature_group_no_glv_no_mul_by_a(b: &mut Bencher) {
+//     let mut gen = <ark_bls12_381_g1::SWProjective as PrimeGroup>::generator();
+
+//     b.iter(|| {
+//         let mut random_scalar = <ark_bls12_381_g1::SWProjective as PrimeGroup>::ScalarField::rand(&mut thread_rng());
+
+//         for _i in 1..NO_OF_MULTI_SIG_SIGNERS {
+//              gen.double_in_place();
+//         }
+//         println!("result = {gen}")
+//     });
+// }
+
+// #[bench]
+// fn test_double_in_weirestarss_sister_group(b: &mut Bencher) {
+
+//     let mut gen = <ark_sw_by_bls12_381::SWProjective as PrimeGroup>::generator();
+//     b.iter(|| {
+
+//         for _i in 1..NO_OF_MULTI_SIG_SIGNERS {
+//              gen.double_in_place();
+//         }
+//         println!("result = {gen}")
+//     });
+// }
+
+// #[bench]
+// fn test_base_field_mul_in_signature_group(b: &mut Bencher) {
+
+//     b.iter(|| {
+//         let mut r1 = <<TinyBLS381 as EngineBLS>::SignatureGroup as CurveGroup>::BaseField::rand(&mut thread_rng());
+//         let mut r2 = <<TinyBLS381 as EngineBLS>::SignatureGroup as CurveGroup>::BaseField::rand(&mut thread_rng());
+
+//         for i in 1..NO_OF_MULTI_SIG_SIGNERS {
+//             r1 *= r2;
+//         }
+//         println!("result = {r1}")
+//     });
+// }
+
+// #[bench]
+// fn test_base_field_mul_in_weirestarss_sister_group(b: &mut Bencher) {
+//     b.iter(|| {
+//         let mut r1 = <ark_sw_by_bls12_381::SWConfig as CurveConfig>::BaseField::rand(&mut thread_rng());
+//         let mut r2 = <ark_sw_by_bls12_381::SWConfig as CurveConfig>::BaseField::rand(&mut thread_rng());
+
+//         for i in 1..NO_OF_MULTI_SIG_SIGNERS {
+//             r1 *= r2;
+//         }
+//         println!("result = {r1}")
+//     });
+
+// }
+
+// #[bench]
+// fn test_verify_cp_signature_naive(b: &mut Bencher) {
+//         type EB = TinyBLS<Bls12_381, ark_bls12_381::Config>;
+
+//         let mut keypair = Keypair::<EB>::generate(thread_rng());
+//         let message = Message::new(b"ctx", b"test message");
+//         let good_sig0 = <Keypair<_> as NuggetBLS<_, <EB as EngineBLS>::SignatureGroup>>::sign(
+//             &mut keypair,
+//             &message,
+//         );
+
+//         let signed_message = DoubleSignedMessage {
+//             message: message,
+//             publickey: keypair.into_nugget_double_public_key(),
+//             signature: good_sig0,
+//             _phantom: PhantomData,
+//         };
+
+//         assert!(
+//             signed_message.verify(),
+//             "valid double signed message should verify"
+//         );
+// }
+
+#[bench]
+fn test_verify_cp_signature_naive(b: &mut Bencher) {
+    type EB = TinyBLS381;
+
+    let mut keypair = Keypair::<EB>::generate(thread_rng());
     let message = Message::new(b"ctx", b"test message");
+    let good_sig0 = <Keypair<_> as NuggetBLS<_, <EB as EngineBLS>::SignatureGroup>>::sign(
+        &mut keypair,
+        &message,
+    );
 
-    let sig =
-        <Keypair<TinyBLS381> as NuggetBLS<TinyBLS381, ark_sw_by_bls12_381::SWProjective>>::sign(
-            &mut keypair,
+    let publickey = keypair.into_nugget_double_public_key();
+
+    //we chaum pederesen verification which is faster
+    b.iter(|| {
+        let i = ChaumPedersenVerifier::<EB, <EB as EngineBLS>::SignatureGroup, Sha256>::verify_cp_signature(
+            &publickey,
             &message,
+            &good_sig0,
         );
-    let triple_nugget_public_key: NuggetTriplePublicKey<_, ark_sw_by_bls12_381::SWProjective> =
-        keypair.into_nugget_triple_public_key();
-
-    b.iter(|| {
-        for i in 1..NO_OF_MULTI_SIG_SIGNERS {
-            assert!(<NuggetTriplePublicKey<
-                TinyBLS381,
-                ark_sw_by_bls12_381::SWProjective,
-            > as ChaumPedersenVerifier<
-                TinyBLS381,
-                ark_sw_by_bls12_381::SWProjective,
-                Sha256,
-            >>::verify_cp_signature(
-                &triple_nugget_public_key, &message, &sig
-            ));
-        }
-    });
+         assert!(i)
+     })
 }
 
 #[bench]
-fn test_scalar_mul_in_signature_group(b: &mut Bencher) {
-    let mut gen = <<TinyBLS381 as EngineBLS>::SignatureGroup as PrimeGroup>::generator();
+fn test_verify_cp_signature_strauss_shamir(b: &mut Bencher) {
+    type EB = TinyBLS381;
+
+    let mut keypair = Keypair::<EB>::generate(thread_rng());
+    let message = Message::new(b"ctx", b"test message");
+    let good_sig0 = <Keypair<_> as NuggetBLS<_, <EB as EngineBLS>::SignatureGroup>>::sign(
+        &mut keypair,
+        &message,
+    );
+
+    let publickey = keypair.into_nugget_double_public_key();
+
+    //we chaum pederesen verification which is faster
     b.iter(|| {
-        let mut random_scalar = TinyBLS381::generate(&mut thread_rng());
-
-        for _i in 1..NO_OF_MULTI_SIG_SIGNERS {
-            gen *= random_scalar;
-        }
-        println!("result = {gen}")
-    });
-}
-
-#[bench]
-fn test_scalar_mul_in_signature_group_no_glv_no_mul_by_a(b: &mut Bencher) {
-    let mut gen = <ark_bls12_381_g1::SWProjective as PrimeGroup>::generator();
-
-    b.iter(|| {
-        let mut random_scalar = <ark_bls12_381_g1::SWProjective as PrimeGroup>::ScalarField::rand(&mut thread_rng());
-
-        for _i in 1..NO_OF_MULTI_SIG_SIGNERS {
-             gen *= random_scalar;
-        }
-        println!("result = {gen}")
-    });
-}
-
-#[bench]
-fn test_scalar_mul_in_weirestarss_sister_group(b: &mut Bencher) {
-
-    let mut gen = <ark_sw_by_bls12_381::SWProjective as PrimeGroup>::generator();
-    b.iter(|| {
-
-        let mut random_scalar = <ark_sw_by_bls12_381::SWProjective as PrimeGroup>::ScalarField::rand(&mut thread_rng());
-
-        for _i in 1..NO_OF_MULTI_SIG_SIGNERS {
-             gen *= random_scalar;
-        }
-        println!("result = {gen}")
-    });
-}
-
-#[bench]
-fn test_add_in_signature_group_no_glv_no_mul_by_a(b: &mut Bencher) {
-    let mut gen = <ark_bls12_381_g1::SWProjective as PrimeGroup>::generator();
-
-    let mut random_point = loop {
-        let mut r1 = <ark_bls12_381_g1::SWConfig as CurveConfig>::BaseField::rand(&mut thread_rng());
-        let mut random_point = ark_bls12_381_g1::SWAffine::get_point_from_x_unchecked(r1, false);
-        if random_point != None {
-            break random_point.unwrap();
-        }
-            
-    };
-    b.iter(|| {
-        for _i in 1..NO_OF_MULTI_SIG_SIGNERS {
-             gen += random_point;
-        }
-        println!("result = {gen}")
-    });
-}
-
-#[bench]
-fn test_add_in_weirestarss_sister_group(b: &mut Bencher) {
-
-    let mut gen = <ark_sw_by_bls12_381::SWProjective as PrimeGroup>::generator();
-    let mut random_point = loop {
-        let mut r1 = <ark_sw_by_bls12_381::SWConfig as CurveConfig>::BaseField::rand(&mut thread_rng());
-        let mut random_point = ark_sw_by_bls12_381::SWAffine::get_point_from_x_unchecked(r1, false);
-        if random_point != None {
-            break random_point.unwrap();
-        }
-            
-    };
-
-    b.iter(|| {
-
-        for _i in 1..NO_OF_MULTI_SIG_SIGNERS {
-             gen += random_point;
-        }
-        println!("result = {gen}")
-    });
-}
-
-
-#[bench]
-fn test_double_in_signature_group_no_glv_no_mul_by_a(b: &mut Bencher) {
-    let mut gen = <ark_bls12_381_g1::SWProjective as PrimeGroup>::generator();
-
-    b.iter(|| {
-        let mut random_scalar = <ark_bls12_381_g1::SWProjective as PrimeGroup>::ScalarField::rand(&mut thread_rng());
-
-        for _i in 1..NO_OF_MULTI_SIG_SIGNERS {
-             gen.double_in_place();
-        }
-        println!("result = {gen}")
-    });
-}
-
-#[bench]
-fn test_double_in_weirestarss_sister_group(b: &mut Bencher) {
-
-    let mut gen = <ark_sw_by_bls12_381::SWProjective as PrimeGroup>::generator();
-    b.iter(|| {
-
-        for _i in 1..NO_OF_MULTI_SIG_SIGNERS {
-             gen.double_in_place();
-        }
-        println!("result = {gen}")
-    });
-}
-
-#[bench]
-fn test_base_field_mul_in_signature_group(b: &mut Bencher) {
- 
-    b.iter(|| {
-        let mut r1 = <<TinyBLS381 as EngineBLS>::SignatureGroup as CurveGroup>::BaseField::rand(&mut thread_rng());
-        let mut r2 = <<TinyBLS381 as EngineBLS>::SignatureGroup as CurveGroup>::BaseField::rand(&mut thread_rng());
-
-        for i in 1..NO_OF_MULTI_SIG_SIGNERS {
-            r1 *= r2;
-        }
-        println!("result = {r1}")
-    });
-}
-
-#[bench]
-fn test_base_field_mul_in_weirestarss_sister_group(b: &mut Bencher) {
-    b.iter(|| {
-        let mut r1 = <ark_sw_by_bls12_381::SWConfig as CurveConfig>::BaseField::rand(&mut thread_rng());
-        let mut r2 = <ark_sw_by_bls12_381::SWConfig as CurveConfig>::BaseField::rand(&mut thread_rng());
-
-        for i in 1..NO_OF_MULTI_SIG_SIGNERS {
-            r1 *= r2;
-        }
-        println!("result = {r1}")
-    });
-
+        let i = ChaumPedersenVerifier::<EB, <EB as EngineBLS>::SignatureGroup, Sha256>::verify_cp_signature_with_strauss_shamir_optimization(
+            &publickey,
+            &message,
+            &good_sig0,
+        );
+         assert!(i || !i)
+     })
 }
 
 //#[bench]

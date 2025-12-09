@@ -98,11 +98,18 @@ pub trait ChaumPedersenVerifier<
     ) -> bool {
         let signature_as_scalars_of_sister_group: (S::ScalarField, S::ScalarField) =
             (signature_proof.1 .0, signature_proof.1 .1);
-        let A_check_point = <S as PrimeGroup>::generator() * signature_as_scalars_of_sister_group.1
-            + self.into_public_key_in_sister_group().0 * signature_as_scalars_of_sister_group.0;
+        let A_check_point = self.strauss_shamir_dual_scalar_multiplication_on_gen_n_pubkey(
+            &signature_as_scalars_of_sister_group.1,
+            &signature_as_scalars_of_sister_group.0,
+        );
 
-        let B_check_point = message.hash_to_signature_curve::<E>() * signature_proof.1 .1
-            + signature_proof.0 * signature_proof.1 .0;
+        let B_check_point = self.strauss_shamir_dual_scalar_multiplication::<E::SignatureGroup>(
+            &signature_proof.1 .0,
+            &signature_proof.1 .1,
+            &signature_proof.0,
+            &message.hash_to_signature_curve::<E>(),
+            Some(signature_proof.0 + message.hash_to_signature_curve::<E>()),
+        );
 
         let A_point_as_bytes = A_check_point.to_bytes();
         let B_point_as_bytes = E::signature_point_to_byte(&B_check_point);
@@ -131,10 +138,10 @@ pub trait ChaumPedersenVerifier<
         c_check == signature_proof.1 .0
     }
 
-    fn strauss_shamir_dual_scalar_multiplications(
+    fn strauss_shamir_dual_scalar_multiplication_on_gen_n_pubkey(
         &self,
-        generator_scalar: S::ScalarField,
-        public_key_scalar: S::ScalarField,
+        generator_scalar: &S::ScalarField,
+        public_key_scalar: &S::ScalarField,
     ) -> S {
         // Use Straus–Shamir (interleaved double-and-add) for the two-scalar multiplication:
         // compute G * s + PK_sister * c more efficiently by interleaving doublings and conditional adds.
@@ -142,33 +149,48 @@ pub trait ChaumPedersenVerifier<
         // base points
         let gen = <S as PrimeGroup>::generator(); // corresponds to G
         let pubkey = self.into_public_key_in_sister_group().0; // corresponds to PK_sister
+        self.strauss_shamir_dual_scalar_multiplication::<S>(
+            &generator_scalar,
+            &public_key_scalar,
+            &gen,
+            &pubkey,
+            Some(self.sister_gen_plus_public_key()),
+        )
+    }
 
-        let gen_scalar_bits = ark_ff::BitIteratorBE::new(generator_scalar.into_bigint());
-        let pub_scalar_bits = ark_ff::BitIteratorBE::new(public_key_scalar.into_bigint());
+    fn strauss_shamir_dual_scalar_multiplication<C: CurveGroup>(
+        &self,
+        first_scalar: &C::ScalarField,
+        second_scalar: &C::ScalarField,
+        first_base: &C,
+        second_base: &C,
+        first_base_plus_second_base: Option<C>, //in case it is precomputed
+    ) -> C {
+        let first_base_plus_second_base = match first_base_plus_second_base {
+            Some(first_base_plus_second_base) => first_base_plus_second_base,
+            None => *first_base + second_base,
+        };
 
-        let mut res = <S as Zero>::zero();
+        let first_scalar_bits = ark_ff::BitIteratorBE::new(first_scalar.into_bigint());
+        let second_scalar_bits = ark_ff::BitIteratorBE::new(second_scalar.into_bigint());
+
+        let mut res = <C as Zero>::zero();
 
         let first_non_zero_bit_reached = false;
-        for (gen_scalar_bit, pub_scalar_bit) in gen_scalar_bits.zip(pub_scalar_bits) {
-            if (gen_scalar_bit, pub_scalar_bit) == (false, false) {
+        for (first_scalar_bit, second_scalar_bit) in first_scalar_bits.zip(second_scalar_bits) {
+            if (first_scalar_bit, second_scalar_bit) == (false, false) {
                 if first_non_zero_bit_reached {
                     res.double_in_place();
                 } else {
                     continue;
                 }
             } else {
-                // let (gen_scalar_bit, pub_scalar_bit) =  match (gen_scalar_bit, pub_scalar_bit) {
-                //     (Some(gen_scalar_bit), Some(pub_scalar_bit)) => (gen_scalar_bit, pub_scalar_bit),
-                //     (Some(gen_scalar_bit), None) => (gen_scalar_bit,false),
-                //     (None, Some(pub_scalar_bit)) => (false, pub_scalar_bit),
-                //     _ => continue,
-                // };
                 res.double_in_place();
-                res += match (gen_scalar_bit, pub_scalar_bit) {
-                    (true, true) => self.sister_gen_plus_public_key(),
-                    (true, false) => gen,
-                    (false, true) => pubkey,
-                    _ => <S as Zero>::zero(), //we already accounted for this and should never reach this anyway
+                res += match (first_scalar_bit, first_scalar_bit) {
+                    (true, true) => first_base_plus_second_base,
+                    (true, false) => *first_base,
+                    (false, true) => *second_base,
+                    _ => <C as Zero>::zero(), //we already accounted for this and should never reach this anyway
                 }
             }
         }
