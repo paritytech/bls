@@ -414,7 +414,31 @@ fn test_verify_cp_signature_strauss_shamir(b: &mut Bencher) {
 
     //we chaum pederesen verification which is faster
     b.iter(|| {
-        let i = ChaumPedersenVerifier::<EB, <EB as EngineBLS>::SignatureGroup, Sha256>::verify_cp_signature_with_strauss_shamir_optimization(
+        let i = ChaumPedersenVerifier::<EB, <EB as EngineBLS>::SignatureGroup, Sha256>::verify_cp_signature(
+            &publickey,
+            &message,
+            &good_sig0,
+        );
+         assert!(i || !i)
+     })
+}
+
+#[bench]
+fn test_verify_cp_signature_ark_msm(b: &mut Bencher) {
+    type EB = TinyBLS381;
+
+    let mut keypair = Keypair::<EB>::generate(thread_rng());
+    let message = Message::new(b"ctx", b"test message");
+    let good_sig0 = <Keypair<_> as NuggetBLS<_, <EB as EngineBLS>::SignatureGroup>>::sign(
+        &mut keypair,
+        &message,
+    );
+
+    let publickey = keypair.into_nugget_double_public_key();
+
+    //we chaum pederesen verification which is faster
+    b.iter(|| {
+        let i = ChaumPedersenVerifier::<EB, <EB as EngineBLS>::SignatureGroup, Sha256>::verify_cp_signature_with_msm_optimization(
             &publickey,
             &message,
             &good_sig0,

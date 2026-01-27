@@ -3,6 +3,7 @@
 //! complies with the proof of possession proposed in
 //! [draft-irtf-cfrg-bls-signature-05](https://www.ietf.org/archive/id/draft-irtf-cfrg-bls-signature-05.html)
 
+use crate::dual_scalar_mul::DualScalarMultiplication;
 use crate::engine::EngineBLS;
 use crate::{Message, NuggetSignature, ProofOfPossession, ProofOfPossessionGenerator};
 
@@ -27,7 +28,7 @@ pub struct NuggetBLSPoP<E: EngineBLS>(pub E::SignatureGroup);
 impl<E: EngineBLS, H: FixedOutputReset + Default + Clone + 'static>
     ProofOfPossessionGenerator<E, H, NuggetDoublePublicKey<E>, NuggetBLSPoP<E>> for Keypair<E>
 where
-    E::SignatureGroup: SerializableToBytes,
+    E::SignatureGroup: SerializableToBytes + DualScalarMultiplication,
 {
     fn generate_pok(&mut self) -> NuggetBLSPoP<E> {
         //We simply classicaly BLS sign public key in G2 based on https://eprint.iacr.org/2022/1611
@@ -116,7 +117,7 @@ pub struct NuggetBLSnCPPoP<E: EngineBLS>(pub NuggetSignature<E>);
 impl<E: EngineBLS, H: FixedOutputReset + Default + Clone + 'static>
     ProofOfPossessionGenerator<E, H, NuggetDoublePublicKey<E>, NuggetBLSnCPPoP<E>> for Keypair<E>
 where
-    E::SignatureGroup: SerializableToBytes,
+    E::SignatureGroup: SerializableToBytes + DualScalarMultiplication,
 {
     fn generate_pok(&mut self) -> NuggetBLSnCPPoP<E> {
         //We simply classicaly BLS sign public key in G2 based on https://eprint.iacr.org/2022/1611
@@ -140,7 +141,7 @@ impl<E: EngineBLS> SerializableToBytes for NuggetBLSnCPPoP<E> {
 impl<E: EngineBLS, H: FixedOutputReset + Default + Clone + 'static>
     ProofOfPossession<E, H, NuggetDoublePublicKey<E>> for NuggetBLSnCPPoP<E>
 where
-    E::SignatureGroup: SerializableToBytes,
+    E::SignatureGroup: SerializableToBytes + DualScalarMultiplication,
 {
     /// verify the validity of PoP by verifying nugget PoP and the CP
     /// signature

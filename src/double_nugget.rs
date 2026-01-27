@@ -12,18 +12,16 @@
 //! It also proposes that each individual BLS signature accompany a DLEQ proof
 //! for faster verification
 
-use alloc::vec::Vec;
-
 use ark_ec::PrimeGroup;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, Read, SerializationError, Valid, Validate, Write};
 
 use digest::FixedOutputReset;
 use sha2::Sha256;
 
 use crate::chaum_pedersen_signature::ChaumPedersenVerifier;
+use crate::dual_scalar_mul::DualScalarMultiplication;
 use crate::nugget::{
-    NuggetBLS, NuggetSignature, NuggetSignedMessage, PublicKeyInSignatureGroup,
-    PublicKeyInSisterGroup,
+    NuggetBLS, NuggetSignature, NuggetSignedMessage, PublicKeyInSignatureGroup, PublicKeyInSisterGroup,
 };
 use crate::serialize::SerializableToBytes;
 use crate::single::{Keypair, KeypairVT, PublicKey, SecretKeyVT};
@@ -31,14 +29,58 @@ use crate::NuggetPublicKey;
 use crate::{EngineBLS, Message};
 
 /// BLS Public Key with sub keys in both groups.
-/// it also stores signature group generator plus public key for Strauss-Shamir
+/// It also stores signature group generator plus public key for Strauss-Shamir
 /// speed up.
-#[derive(Debug, Clone, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Debug, Clone)]
 pub struct NuggetDoublePublicKey<E: EngineBLS>(
     pub E::SignatureGroup,
     pub E::PublicKeyGroup,
-    pub E::SignatureGroup,
+    /// gen + public_key - precomputed for Strauss-Shamir, not serialized
+    E::SignatureGroup,
 );
+
+/// Manual serialization - only serialize the two public keys, not the precomputed sum
+impl<E: EngineBLS> CanonicalSerialize for NuggetDoublePublicKey<E> {
+    fn serialize_with_mode<W: Write>(&self, mut writer: W, compress: Compress) -> Result<(), SerializationError> {
+        self.0.serialize_with_mode(&mut writer, compress)?;
+        self.1.serialize_with_mode(&mut writer, compress)?;
+        Ok(())
+    }
+
+    fn serialized_size(&self, compress: Compress) -> usize {
+        self.0.serialized_size(compress) + self.1.serialized_size(compress)
+    }
+}
+
+impl<E: EngineBLS> Valid for NuggetDoublePublicKey<E> {
+    fn check(&self) -> Result<(), SerializationError> {
+        self.0.check()?;
+        self.1.check()?;
+        Ok(())
+    }
+}
+
+/// Manual deserialization - deserialize two public keys and recompute the precomputed sum
+impl<E: EngineBLS> CanonicalDeserialize for NuggetDoublePublicKey<E> {
+    fn deserialize_with_mode<R: Read>(mut reader: R, compress: Compress, validate: Validate) -> Result<Self, SerializationError> {
+        let public_key_in_signature_group = E::SignatureGroup::deserialize_with_mode(&mut reader, compress, validate)?;
+        let public_key = E::PublicKeyGroup::deserialize_with_mode(&mut reader, compress, validate)?;
+        Ok(Self::new(public_key_in_signature_group, public_key))
+    }
+}
+
+impl<E: EngineBLS> NuggetDoublePublicKey<E> {
+    /// Creates a new NuggetDoublePublicKey from the public key components.
+    /// The third element (gen + public_key) is computed automatically for Strauss-Shamir optimization.
+    pub fn new(
+        public_key_in_signature_group: E::SignatureGroup,
+        public_key: E::PublicKeyGroup,
+    ) -> Self {
+        let gen_plus_public_key =
+            <E::SignatureGroup as PrimeGroup>::generator() + public_key_in_signature_group;
+        Self(public_key_in_signature_group, public_key, gen_plus_public_key)
+    }
+}
 
 pub trait DoubleNuggetBLS<E: EngineBLS>: NuggetBLS<E, E::SignatureGroup> {
     /// Return a double public object containing public keys both in G1 and G2
@@ -48,13 +90,13 @@ pub trait DoubleNuggetBLS<E: EngineBLS>: NuggetBLS<E, E::SignatureGroup> {
 impl<E: EngineBLS, H: FixedOutputReset + Default + Clone>
     ChaumPedersenVerifier<E, E::SignatureGroup, H> for NuggetDoublePublicKey<E>
 where
-    E::SignatureGroup: SerializableToBytes,
+    E::SignatureGroup: SerializableToBytes + DualScalarMultiplication,
 {
 }
 
 impl<E: EngineBLS> NuggetPublicKey<E, E::SignatureGroup> for NuggetDoublePublicKey<E>
 where
-    E::SignatureGroup: SerializableToBytes,
+    E::SignatureGroup: SerializableToBytes + DualScalarMultiplication,
 {
     fn into_public_key_in_signature_group(&self) -> PublicKeyInSignatureGroup<E> {
         PublicKeyInSignatureGroup(self.0)
@@ -68,8 +110,8 @@ where
         PublicKeyInSisterGroup(self.0)
     }
 
-    fn sister_gen_plus_public_key(&self) -> E::SignatureGroup {
-        self.2
+    fn straus_sister_group_precomputed_points(&self) -> &[E::SignatureGroup] {
+        core::slice::from_ref(&self.2)
     }
 
     fn verify(&self, message: &Message, signature: &NuggetSignature<E>) -> bool {
@@ -88,11 +130,9 @@ where
     E::SignatureGroup: SerializableToBytes,
 {
     fn into_nugget_double_public_key(&self) -> NuggetDoublePublicKey<E> {
-        NuggetDoublePublicKey(
+        NuggetDoublePublicKey::new(
             <SecretKeyVT<E> as NuggetBLS::<E, E::SignatureGroup>>::into_public_key_in_signature_group(self).0,
             self.into_public().0,
-            <E::SignatureGroup as PrimeGroup>::generator() +  <SecretKeyVT<E> as NuggetBLS::<E, E::SignatureGroup>>::into_public_key_in_signature_group(self).0
-
         )
     }
 }
@@ -147,7 +187,7 @@ mod tests {
     where
         <P as Bls12Config>::G2Config: WBConfig,
         WBMap<<P as Bls12Config>::G2Config>: MapToCurve<<E as PairingEngine>::G2>,
-        EB::SignatureGroup: SerializableToBytes,
+        EB::SignatureGroup: SerializableToBytes + DualScalarMultiplication,
     {
         let DoubleSignedMessage {
             message,
@@ -175,7 +215,7 @@ mod tests {
     where
         <P as Bls12Config>::G2Config: WBConfig,
         WBMap<<P as Bls12Config>::G2Config>: MapToCurve<<E as PairingEngine>::G2>,
-        EB::SignatureGroup: SerializableToBytes,
+        EB::SignatureGroup: SerializableToBytes + DualScalarMultiplication,
     {
         let good = Message::new(b"ctx", b"test message");
 

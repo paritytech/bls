@@ -80,13 +80,13 @@
 //!
 //!
 
-#![feature(test)] //needed for cargo bench
+// #![feature(test)] //needed for cargo bench
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg_attr(feature = "std", doc = include_str!("../README.md"))]
 #[cfg(doctest)]
 pub struct ReadmeDoctests;
 
-pub mod bench;
+// pub mod bench;
 
 extern crate ark_serialize;
 extern crate ark_serialize_derive;
@@ -106,6 +106,8 @@ use digest::DynDigest;
 
 pub mod chaum_pedersen_signature;
 pub mod double_nugget;
+pub mod double_nugget_glv;
+pub mod dual_scalar_mul;
 pub mod engine;
 pub mod nugget;
 pub mod nugget_pop;
@@ -130,6 +132,7 @@ pub mod distinct;
 pub use engine::*;
 
 pub use double_nugget::{DoubleNuggetBLS, DoubleSignedMessage, NuggetDoublePublicKey};
+pub use double_nugget_glv::NuggetDoublePublicKeyGLV;
 pub use nugget::{
     NuggetBLS, NuggetPublicKey, NuggetSignature, PublicKeyInSignatureGroup, PublicKeyInSisterGroup,
 };

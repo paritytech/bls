@@ -22,6 +22,7 @@ use sha2::Sha256;
 
 use crate::broken_derives;
 use crate::chaum_pedersen_signature::{ChaumPedersenSigner, ChaumPedersenVerifier};
+use crate::dual_scalar_mul::DualScalarMultiplication;
 use crate::schnorr_pop::SchnorrProof;
 use crate::serialize::SerializableToBytes;
 use crate::single::{Keypair, KeypairVT, PublicKey, SecretKeyVT, Signature};
@@ -51,7 +52,7 @@ pub trait NuggetPublicKey<
 
     fn into_public_key_in_sister_group(&self) -> PublicKeyInSisterGroup<S>;
 
-    fn sister_gen_plus_public_key(&self) -> S;
+    fn straus_sister_group_precomputed_points(&self) -> &[S];
 
     fn verify(&self, message: &Message, signature: &NuggetSignature<E>) -> bool;
 }
@@ -133,7 +134,7 @@ impl<E: EngineBLS> NuggetSignature<E> {
 
     /// Verify a single BLS signature using DLEQ proof
     pub fn verify<
-        S: CurveGroup,
+        S: CurveGroup + DualScalarMultiplication,
         H: FixedOutputReset + Default + Clone,
         P: ChaumPedersenVerifier<E, S, H>,
     >(
@@ -143,6 +144,7 @@ impl<E: EngineBLS> NuggetSignature<E> {
     ) -> bool
     where
         S: PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes,
+        E::SignatureGroup: DualScalarMultiplication,
     {
         publickey.verify_cp_signature(message, self)
     }
@@ -201,10 +203,11 @@ where
     }
 }
 
-impl<'a, E: EngineBLS, S: CurveGroup, P: ChaumPedersenVerifier<E, S, Sha256>> Signed
+impl<'a, E: EngineBLS, S: CurveGroup + DualScalarMultiplication, P: ChaumPedersenVerifier<E, S, Sha256>> Signed
     for &'a NuggetSignedMessage<E, S, P>
 where
     S: PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes,
+    E::SignatureGroup: DualScalarMultiplication,
 {
     type E = E;
 
