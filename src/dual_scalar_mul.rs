@@ -127,10 +127,12 @@ pub struct StrausPrecomputedTable<P: CurveGroup> {
 }
 
 impl<C: BLSGLVConfig> StrausPrecomputedTable<Projective<C>> {
-    /// Creates a new StrausPrecomputedTable by precomputing the table
-    /// for the GLV-decomposed generator and public key points.
-    /// Each point is decomposed into two GLV points, giving 4 points total.
-    /// The table has 2^4 = 16 entries for all subset sums.
+    /// Creates a new StrausPrecomputedTable with 256 entries covering all sign combinations.
+    /// Each point is GLV-decomposed into two points, giving 4 points total.
+    /// With 4 sign choices, we have 16 sign combinations × 16 subset sums = 256 entries.
+    ///
+    /// Table layout: entries [sign_idx * 16 .. sign_idx * 16 + 16] contain the
+    /// subset sum table for sign combination `sign_idx`.
     pub fn new(generator: Projective<C>, public_key: Projective<C>) -> Self {
         // GLV decompose generator: G -> (G, φ(G))
         let gen_affine = generator.into_affine();
@@ -140,8 +142,22 @@ impl<C: BLSGLVConfig> StrausPrecomputedTable<Projective<C>> {
         let pk_affine = public_key.into_affine();
         let pk_glv: Projective<C> = C::endomorphism_affine(&pk_affine).into();
 
-        // Build table for 4 points: [G, φ(G), PK, φ(PK)]
-        Self::precompute_sums(&[generator, gen_glv, public_key, pk_glv])
+        let points = [generator, gen_glv, public_key, pk_glv];
+
+        // Build tables for all 16 sign combinations
+        let mut table = Vec::with_capacity(256);
+        for sign_idx in 0..16u8 {
+            let signed_points = [
+                if sign_idx & 1 == 0 { points[0] } else { -points[0] },
+                if sign_idx & 2 == 0 { points[1] } else { -points[1] },
+                if sign_idx & 4 == 0 { points[2] } else { -points[2] },
+                if sign_idx & 8 == 0 { points[3] } else { -points[3] },
+            ];
+            let subset_table = Self::precompute_sums(&signed_points);
+            table.extend(subset_table.table);
+        }
+
+        Self { table }
     }
 
     /// Precomputes sums of all subsets of the list of `points` for Strauss-Shamir.
@@ -154,6 +170,18 @@ impl<C: BLSGLVConfig> StrausPrecomputedTable<Projective<C>> {
         }
         Self { table }
     }
+
+}
+
+/// Computes the sign index from scalar decomposition signs.
+/// sign=true means positive (bit=0), sign=false means negative (bit=1).
+#[inline]
+pub fn glv_sign_index(sgn_s1_1: bool, sgn_s1_2: bool, sgn_s2_1: bool, sgn_s2_2: bool) -> usize {
+    let bit0 = if sgn_s1_1 { 0 } else { 1 };
+    let bit1 = if sgn_s1_2 { 0 } else { 2 };
+    let bit2 = if sgn_s2_1 { 0 } else { 4 };
+    let bit3 = if sgn_s2_2 { 0 } else { 8 };
+    bit0 | bit1 | bit2 | bit3
 }
 
 /// GLV-optimized implementation of DualScalarMultiplication for curves with GLV endomorphism.
@@ -171,27 +199,29 @@ impl<C: BLSGLVConfig> DualScalarMultiplication for Projective<C> {
         let ((sgn_s1_1, s1_1), (sgn_s1_2, s1_2)) = C::scalar_decomposition(*first_scalar);
         let ((sgn_s2_1, s2_1), (sgn_s2_2, s2_2)) = C::scalar_decomposition(*second_scalar);
 
-        // GLV decompose both base points
-        let first_affine = first_base.into_affine();
-        let second_affine = second_base.into_affine();
-
-        let mut p1_1 = *first_base;
-        let mut p1_2: Self = C::endomorphism_affine(&first_affine).into();
-        let mut p2_1 = *second_base;
-        let mut p2_2: Self = C::endomorphism_affine(&second_affine).into();
-
-        // Apply signs from scalar decomposition
-        if !sgn_s1_1 { p1_1 = -p1_1; }
-        if !sgn_s1_2 { p1_2 = -p1_2; }
-        if !sgn_s2_1 { p2_1 = -p2_1; }
-        if !sgn_s2_2 { p2_2 = -p2_2; }
-
-        // Build or use precomputed table for 4 points (16 entries for GLV)
-        // Only allocate if the provided table is missing or wrong size
+        // Build or use precomputed table for 4 points
         let owned_table;
         let table: &[Self] = match pre_computed_table {
-            Some(t) if t.len() == 16 => t,
+            Some(t) if t.len() == 256 => {
+                // Use precomputed 256-element table: select correct 16-element slice by sign index
+                let sign_idx = glv_sign_index(sgn_s1_1, sgn_s1_2, sgn_s2_1, sgn_s2_2);
+                &t[sign_idx * 16..(sign_idx + 1) * 16]
+            }
             _ => {
+                // Compute 16-element table at runtime with correct signs
+                let first_affine = first_base.into_affine();
+                let second_affine = second_base.into_affine();
+
+                let mut p1_1 = *first_base;
+                let mut p1_2: Self = C::endomorphism_affine(&first_affine).into();
+                let mut p2_1 = *second_base;
+                let mut p2_2: Self = C::endomorphism_affine(&second_affine).into();
+
+                if !sgn_s1_1 { p1_1 = -p1_1; }
+                if !sgn_s1_2 { p1_2 = -p1_2; }
+                if !sgn_s2_1 { p2_1 = -p2_1; }
+                if !sgn_s2_2 { p2_2 = -p2_2; }
+
                 let points = [p1_1, p1_2, p2_1, p2_2];
                 owned_table = StrausPrecomputedTable::precompute_sums(&points).table;
                 &owned_table
