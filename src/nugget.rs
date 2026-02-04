@@ -203,8 +203,12 @@ where
     }
 }
 
-impl<'a, E: EngineBLS, S: CurveGroup + DualScalarMultiplication, P: ChaumPedersenVerifier<E, S, Sha256>> Signed
-    for &'a NuggetSignedMessage<E, S, P>
+impl<
+        'a,
+        E: EngineBLS,
+        S: CurveGroup + DualScalarMultiplication,
+        P: ChaumPedersenVerifier<E, S, Sha256>,
+    > Signed for &'a NuggetSignedMessage<E, S, P>
 where
     S: PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes,
     E::SignatureGroup: DualScalarMultiplication,

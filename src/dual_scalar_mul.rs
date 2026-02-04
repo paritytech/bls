@@ -6,10 +6,13 @@
 use alloc::vec;
 use alloc::vec::Vec;
 
+#[cfg(feature = "benchmark")]
+use std::time::Instant;
+
 use ark_ec::scalar_mul::glv::GLVConfig;
 use ark_ec::short_weierstrass::Projective;
 use ark_ec::CurveGroup;
-use ark_ff::{AdditiveGroup, BigInteger, PrimeField, Zero};
+use ark_ff::{AdditiveGroup, PrimeField, Zero};
 
 /// Marker trait for curves that don't have GLV endomorphism optimization.
 /// Implement this for curves that should use the vanilla Strauss-Shamir algorithm.
@@ -23,6 +26,8 @@ pub trait BLSGLVConfig: GLVConfig {}
 
 impl BLSGLVConfig for ark_bls12_381::g1::Config {}
 impl BLSGLVConfig for ark_bls12_377::g1::Config {}
+
+impl NonGLVCurve for ark_sw_by_bls12_381::SWProjective {}
 
 /// Trait for dual scalar multiplication (computing a*P + b*Q efficiently).
 /// This is used in Chaum-Pedersen signature verification.
@@ -46,6 +51,11 @@ impl<G: NonGLVCurve> DualScalarMultiplication for G {
         second_base: &Self,
         pre_computed_table: Option<&[Self]>,
     ) -> Self {
+        #[cfg(feature = "benchmark")]
+        let total_start = Instant::now();
+
+        #[cfg(feature = "benchmark")]
+        let start = Instant::now();
         let mut res = Self::zero();
 
         let first_scalar_as_big_int = first_scalar.into_bigint();
@@ -55,8 +65,12 @@ impl<G: NonGLVCurve> DualScalarMultiplication for G {
         let n2 = second_scalar_as_big_int.as_ref().len() * 64;
 
         let mut n = if n1 > n2 { n1 } else { n2 };
+        #[cfg(feature = "benchmark")]
+        println!("[Shamir] scalar_to_bigint: {:?}", start.elapsed());
 
         // Skip the leading zero bits
+        #[cfg(feature = "benchmark")]
+        let start = Instant::now();
         while n > 0 {
             n -= 1;
             let part = n / 64;
@@ -72,11 +86,15 @@ impl<G: NonGLVCurve> DualScalarMultiplication for G {
                 }
             }
         }
+        #[cfg(feature = "benchmark")]
+        println!("[Shamir] skip_leading_zeros: {:?}", start.elapsed());
 
         if n == 0 {
             return res;
         }
 
+        #[cfg(feature = "benchmark")]
+        let start = Instant::now();
         let first_base_plus_second_base = match pre_computed_table {
             Some(table) => match table.len() {
                 1 => table[0],
@@ -84,7 +102,11 @@ impl<G: NonGLVCurve> DualScalarMultiplication for G {
             },
             None => *first_base + *second_base,
         };
+        #[cfg(feature = "benchmark")]
+        println!("[Shamir] precompute_sum: {:?}", start.elapsed());
 
+        #[cfg(feature = "benchmark")]
+        let start = Instant::now();
         n += 1; // n is unsigned so we can't go negative
         while n > 0 {
             n -= 1;
@@ -113,6 +135,15 @@ impl<G: NonGLVCurve> DualScalarMultiplication for G {
                 }
             }
         }
+        #[cfg(feature = "benchmark")]
+        println!(
+            "[Shamir] main_loop ({} bits): {:?}",
+            n1.max(n2),
+            start.elapsed()
+        );
+
+        #[cfg(feature = "benchmark")]
+        println!("[Shamir] TOTAL: {:?}", total_start.elapsed());
 
         res
     }
@@ -148,10 +179,26 @@ impl<C: BLSGLVConfig> StrausPrecomputedTable<Projective<C>> {
         let mut table = Vec::with_capacity(256);
         for sign_idx in 0..16u8 {
             let signed_points = [
-                if sign_idx & 1 == 0 { points[0] } else { -points[0] },
-                if sign_idx & 2 == 0 { points[1] } else { -points[1] },
-                if sign_idx & 4 == 0 { points[2] } else { -points[2] },
-                if sign_idx & 8 == 0 { points[3] } else { -points[3] },
+                if sign_idx & 1 == 0 {
+                    points[0]
+                } else {
+                    -points[0]
+                },
+                if sign_idx & 2 == 0 {
+                    points[1]
+                } else {
+                    -points[1]
+                },
+                if sign_idx & 4 == 0 {
+                    points[2]
+                } else {
+                    -points[2]
+                },
+                if sign_idx & 8 == 0 {
+                    points[3]
+                } else {
+                    -points[3]
+                },
             ];
             let subset_table = Self::precompute_sums(&signed_points);
             table.extend(subset_table.table);
@@ -170,7 +217,6 @@ impl<C: BLSGLVConfig> StrausPrecomputedTable<Projective<C>> {
         }
         Self { table }
     }
-
 }
 
 /// Computes the sign index from scalar decomposition signs.
@@ -195,20 +241,33 @@ impl<C: BLSGLVConfig> DualScalarMultiplication for Projective<C> {
         second_base: &Self,
         pre_computed_table: Option<&[Self]>,
     ) -> Self {
+        #[cfg(feature = "benchmark")]
+        let total_start = Instant::now();
+
         // GLV decompose both scalars
+        #[cfg(feature = "benchmark")]
+        let start = Instant::now();
         let ((sgn_s1_1, s1_1), (sgn_s1_2, s1_2)) = C::scalar_decomposition(*first_scalar);
         let ((sgn_s2_1, s2_1), (sgn_s2_2, s2_2)) = C::scalar_decomposition(*second_scalar);
+        #[cfg(feature = "benchmark")]
+        println!("[GLV] scalar_decomposition: {:?}", start.elapsed());
 
         // Build or use precomputed table for 4 points
+        #[cfg(feature = "benchmark")]
+        let start = Instant::now();
         let owned_table;
         let table: &[Self] = match pre_computed_table {
             Some(t) if t.len() == 256 => {
                 // Use precomputed 256-element table: select correct 16-element slice by sign index
+                #[cfg(feature = "benchmark")]
+                println!("[GLV] using precomputed 256-element table");
                 let sign_idx = glv_sign_index(sgn_s1_1, sgn_s1_2, sgn_s2_1, sgn_s2_2);
                 &t[sign_idx * 16..(sign_idx + 1) * 16]
             }
             _ => {
                 // Compute 16-element table at runtime with correct signs
+                #[cfg(feature = "benchmark")]
+                println!("[GLV] computing 16-element table at runtime");
                 let first_affine = first_base.into_affine();
                 let second_affine = second_base.into_affine();
 
@@ -217,52 +276,118 @@ impl<C: BLSGLVConfig> DualScalarMultiplication for Projective<C> {
                 let mut p2_1 = *second_base;
                 let mut p2_2: Self = C::endomorphism_affine(&second_affine).into();
 
-                if !sgn_s1_1 { p1_1 = -p1_1; }
-                if !sgn_s1_2 { p1_2 = -p1_2; }
-                if !sgn_s2_1 { p2_1 = -p2_1; }
-                if !sgn_s2_2 { p2_2 = -p2_2; }
+                if !sgn_s1_1 {
+                    p1_1 = -p1_1;
+                }
+                if !sgn_s1_2 {
+                    p1_2 = -p1_2;
+                }
+                if !sgn_s2_1 {
+                    p2_1 = -p2_1;
+                }
+                if !sgn_s2_2 {
+                    p2_2 = -p2_2;
+                }
 
                 let points = [p1_1, p1_2, p2_1, p2_2];
                 owned_table = StrausPrecomputedTable::precompute_sums(&points).table;
                 &owned_table
             }
         };
+        #[cfg(feature = "benchmark")]
+        println!("[GLV] table_setup: {:?}", start.elapsed());
 
         // Convert scalars to big integers for bit access
+        #[cfg(feature = "benchmark")]
+        let start = Instant::now();
         let s1_1_bits = s1_1.into_bigint();
         let s1_2_bits = s1_2.into_bigint();
         let s2_1_bits = s2_1.into_bigint();
         let s2_2_bits = s2_2.into_bigint();
 
-        // Find max bit length
-        let max_bits = core::cmp::max(
-            core::cmp::max(s1_1_bits.num_bits(), s1_2_bits.num_bits()),
-            core::cmp::max(s2_1_bits.num_bits(), s2_2_bits.num_bits()),
-        ) as usize;
+        // Get bit lengths
+        let n1 = s1_1_bits.as_ref().len() * 64;
+        let n2 = s1_2_bits.as_ref().len() * 64;
+        let n3 = s2_1_bits.as_ref().len() * 64;
+        let n4 = s2_2_bits.as_ref().len() * 64;
+        #[cfg(feature = "benchmark")]
+        println!("[GLV] scalar_to_bigint: {:?}", start.elapsed());
 
-        if max_bits == 0 {
+        let mut n = core::cmp::max(core::cmp::max(n1, n2), core::cmp::max(n3, n4));
+
+        // Skip the leading zero bits
+        #[cfg(feature = "benchmark")]
+        let start = Instant::now();
+        while n > 0 {
+            n -= 1;
+            let part = n / 64;
+            let bit = n - (64 * part);
+            if (n1 > n && s1_1_bits.as_ref()[part] & (1 << bit) > 0)
+                || (n2 > n && s1_2_bits.as_ref()[part] & (1 << bit) > 0)
+                || (n3 > n && s2_1_bits.as_ref()[part] & (1 << bit) > 0)
+                || (n4 > n && s2_2_bits.as_ref()[part] & (1 << bit) > 0)
+            {
+                break;
+            }
+        }
+        #[cfg(feature = "benchmark")]
+        println!("[GLV] skip_leading_zeros: {:?}", start.elapsed());
+
+        if n == 0 {
             return Self::zero();
         }
 
         let mut res = Self::zero();
 
         // Straus-Shamir with 4 scalars using precomputed table
-        for i in (0..max_bits).rev() {
-            res.double_in_place();
+        #[cfg(feature = "benchmark")]
+        let start = Instant::now();
+        #[cfg(feature = "benchmark")]
+        let loop_bits = n;
+        n += 1; // n is unsigned so we can't go negative
+        while n > 0 {
+            n -= 1;
+            let part = n / 64;
+            let bit = n - (64 * part);
 
             // Build 4-bit index from current bits of all 4 scalars
-            let bit0 = if s1_1_bits.get_bit(i) { 1 } else { 0 };
-            let bit1 = if s1_2_bits.get_bit(i) { 2 } else { 0 };
-            let bit2 = if s2_1_bits.get_bit(i) { 4 } else { 0 };
-            let bit3 = if s2_2_bits.get_bit(i) { 8 } else { 0 };
+            let bit0 = if n1 > n && s1_1_bits.as_ref()[part] & (1 << bit) > 0 {
+                1
+            } else {
+                0
+            };
+            let bit1 = if n2 > n && s1_2_bits.as_ref()[part] & (1 << bit) > 0 {
+                2
+            } else {
+                0
+            };
+            let bit2 = if n3 > n && s2_1_bits.as_ref()[part] & (1 << bit) > 0 {
+                4
+            } else {
+                0
+            };
+            let bit3 = if n4 > n && s2_2_bits.as_ref()[part] & (1 << bit) > 0 {
+                8
+            } else {
+                0
+            };
             let idx = bit0 | bit1 | bit2 | bit3;
 
+            res.double_in_place();
             if idx != 0 {
                 res += table[idx];
             }
         }
+        #[cfg(feature = "benchmark")]
+        println!(
+            "[GLV] main_loop ({} bits): {:?}",
+            loop_bits,
+            start.elapsed()
+        );
+
+        #[cfg(feature = "benchmark")]
+        println!("[GLV] TOTAL: {:?}", total_start.elapsed());
 
         res
     }
 }
-

@@ -13,7 +13,10 @@
 //! for faster verification
 
 use ark_ec::PrimeGroup;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, Read, SerializationError, Valid, Validate, Write};
+use ark_serialize::{
+    CanonicalDeserialize, CanonicalSerialize, Compress, Read, SerializationError, Valid, Validate,
+    Write,
+};
 
 use digest::FixedOutputReset;
 use sha2::Sha256;
@@ -21,7 +24,8 @@ use sha2::Sha256;
 use crate::chaum_pedersen_signature::ChaumPedersenVerifier;
 use crate::dual_scalar_mul::DualScalarMultiplication;
 use crate::nugget::{
-    NuggetBLS, NuggetSignature, NuggetSignedMessage, PublicKeyInSignatureGroup, PublicKeyInSisterGroup,
+    NuggetBLS, NuggetSignature, NuggetSignedMessage, PublicKeyInSignatureGroup,
+    PublicKeyInSisterGroup,
 };
 use crate::serialize::SerializableToBytes;
 use crate::single::{Keypair, KeypairVT, PublicKey, SecretKeyVT};
@@ -41,7 +45,11 @@ pub struct NuggetDoublePublicKey<E: EngineBLS>(
 
 /// Manual serialization - only serialize the two public keys, not the precomputed sum
 impl<E: EngineBLS> CanonicalSerialize for NuggetDoublePublicKey<E> {
-    fn serialize_with_mode<W: Write>(&self, mut writer: W, compress: Compress) -> Result<(), SerializationError> {
+    fn serialize_with_mode<W: Write>(
+        &self,
+        mut writer: W,
+        compress: Compress,
+    ) -> Result<(), SerializationError> {
         self.0.serialize_with_mode(&mut writer, compress)?;
         self.1.serialize_with_mode(&mut writer, compress)?;
         Ok(())
@@ -62,8 +70,13 @@ impl<E: EngineBLS> Valid for NuggetDoublePublicKey<E> {
 
 /// Manual deserialization - deserialize two public keys and recompute the precomputed sum
 impl<E: EngineBLS> CanonicalDeserialize for NuggetDoublePublicKey<E> {
-    fn deserialize_with_mode<R: Read>(mut reader: R, compress: Compress, validate: Validate) -> Result<Self, SerializationError> {
-        let public_key_in_signature_group = E::SignatureGroup::deserialize_with_mode(&mut reader, compress, validate)?;
+    fn deserialize_with_mode<R: Read>(
+        mut reader: R,
+        compress: Compress,
+        validate: Validate,
+    ) -> Result<Self, SerializationError> {
+        let public_key_in_signature_group =
+            E::SignatureGroup::deserialize_with_mode(&mut reader, compress, validate)?;
         let public_key = E::PublicKeyGroup::deserialize_with_mode(&mut reader, compress, validate)?;
         Ok(Self::new(public_key_in_signature_group, public_key))
     }
@@ -78,7 +91,11 @@ impl<E: EngineBLS> NuggetDoublePublicKey<E> {
     ) -> Self {
         let gen_plus_public_key =
             <E::SignatureGroup as PrimeGroup>::generator() + public_key_in_signature_group;
-        Self(public_key_in_signature_group, public_key, gen_plus_public_key)
+        Self(
+            public_key_in_signature_group,
+            public_key,
+            gen_plus_public_key,
+        )
     }
 }
 

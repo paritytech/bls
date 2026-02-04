@@ -1,6 +1,9 @@
 use ark_ec::{CurveGroup, PrimeGroup};
 
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, Read, SerializationError, Valid, Validate, Write};
+use ark_serialize::{
+    CanonicalDeserialize, CanonicalSerialize, Compress, Read, SerializationError, Valid, Validate,
+    Write,
+};
 
 use digest::FixedOutputReset;
 use sha2::Sha256;
@@ -39,7 +42,12 @@ where
         public_key_in_sister_group: S,
     ) -> Self {
         let gen_plus_pub = <S as PrimeGroup>::generator() + public_key_in_sister_group;
-        Self(public_key_in_signature_group, public_key, public_key_in_sister_group, gen_plus_pub)
+        Self(
+            public_key_in_signature_group,
+            public_key,
+            public_key_in_sister_group,
+            gen_plus_pub,
+        )
     }
 }
 
@@ -48,7 +56,11 @@ impl<E: EngineBLS, S: CurveGroup> CanonicalSerialize for NuggetTriplePublicKey<E
 where
     S: PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes,
 {
-    fn serialize_with_mode<W: Write>(&self, mut writer: W, compress: Compress) -> Result<(), SerializationError> {
+    fn serialize_with_mode<W: Write>(
+        &self,
+        mut writer: W,
+        compress: Compress,
+    ) -> Result<(), SerializationError> {
         self.0.serialize_with_mode(&mut writer, compress)?;
         self.1.serialize_with_mode(&mut writer, compress)?;
         self.2.serialize_with_mode(&mut writer, compress)?;
@@ -56,7 +68,9 @@ where
     }
 
     fn serialized_size(&self, compress: Compress) -> usize {
-        self.0.serialized_size(compress) + self.1.serialized_size(compress) + self.2.serialized_size(compress)
+        self.0.serialized_size(compress)
+            + self.1.serialized_size(compress)
+            + self.2.serialized_size(compress)
     }
 }
 
@@ -77,11 +91,20 @@ impl<E: EngineBLS, S: CurveGroup> CanonicalDeserialize for NuggetTriplePublicKey
 where
     S: PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes,
 {
-    fn deserialize_with_mode<R: Read>(mut reader: R, compress: Compress, validate: Validate) -> Result<Self, SerializationError> {
-        let public_key_in_signature_group = E::SignatureGroup::deserialize_with_mode(&mut reader, compress, validate)?;
+    fn deserialize_with_mode<R: Read>(
+        mut reader: R,
+        compress: Compress,
+        validate: Validate,
+    ) -> Result<Self, SerializationError> {
+        let public_key_in_signature_group =
+            E::SignatureGroup::deserialize_with_mode(&mut reader, compress, validate)?;
         let public_key = E::PublicKeyGroup::deserialize_with_mode(&mut reader, compress, validate)?;
         let public_key_in_sister_group = S::deserialize_with_mode(&mut reader, compress, validate)?;
-        Ok(Self::new(public_key_in_signature_group, public_key, public_key_in_sister_group))
+        Ok(Self::new(
+            public_key_in_signature_group,
+            public_key,
+            public_key_in_sister_group,
+        ))
     }
 }
 
@@ -93,15 +116,19 @@ pub trait TripleNuggetBLS<
     fn into_nugget_triple_public_key(&self) -> NuggetTriplePublicKey<E, S>;
 }
 
-impl<E: EngineBLS, S: CurveGroup + DualScalarMultiplication, H: FixedOutputReset + Default + Clone>
-    ChaumPedersenVerifier<E, S, H> for NuggetTriplePublicKey<E, S>
+impl<
+        E: EngineBLS,
+        S: CurveGroup + DualScalarMultiplication,
+        H: FixedOutputReset + Default + Clone,
+    > ChaumPedersenVerifier<E, S, H> for NuggetTriplePublicKey<E, S>
 where
     S: PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes,
     E::SignatureGroup: DualScalarMultiplication,
 {
 }
 
-impl<E: EngineBLS, S: CurveGroup + DualScalarMultiplication> NuggetPublicKey<E, S> for NuggetTriplePublicKey<E, S>
+impl<E: EngineBLS, S: CurveGroup + DualScalarMultiplication> NuggetPublicKey<E, S>
+    for NuggetTriplePublicKey<E, S>
 where
     S: PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes,
     E::SignatureGroup: DualScalarMultiplication,
@@ -197,7 +224,10 @@ mod tests {
     //TODO test for triple public key serialization
     fn test_single_bls_message_double_signature_triple_publickey_scheme<
         EB: EngineBLS<Engine = E>,
-        S: CurveGroup + PrimeGroup<ScalarField = EB::Scalar> + SerializableToBytes + DualScalarMultiplication,
+        S: CurveGroup
+            + PrimeGroup<ScalarField = EB::Scalar>
+            + SerializableToBytes
+            + DualScalarMultiplication,
         E: PairingEngine,
         P: Bls12Config,
     >()
@@ -271,7 +301,6 @@ mod tests {
     // Mark test curves as NonGLVCurve to get the Strauss-Shamir implementation
     use crate::dual_scalar_mul::NonGLVCurve;
     impl NonGLVCurve for ark_ed_by_bls12_381::EdwardsProjective {}
-    impl NonGLVCurve for ark_sw_by_bls12_381::SWProjective {}
 
     #[test]
     fn test_single_bls_message_double_signature_triple_publickey_scheme_for_bls12_381_edwards() {

@@ -66,3 +66,4 @@ hex-literal = "0.3.4"
 default = ["std"]
 std = ["rand/std"]
 experimental = []
+benchmark = ["std"]

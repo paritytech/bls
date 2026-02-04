@@ -5,16 +5,17 @@
 
 use ark_ec::short_weierstrass::Projective;
 use ark_ec::PrimeGroup;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, Read, SerializationError, Valid, Validate, Write};
+use ark_serialize::{
+    CanonicalDeserialize, CanonicalSerialize, Compress, Read, SerializationError, Valid, Validate,
+    Write,
+};
 
 use digest::FixedOutputReset;
 use sha2::Sha256;
 
 use crate::chaum_pedersen_signature::ChaumPedersenVerifier;
 use crate::dual_scalar_mul::{BLSGLVConfig, StrausPrecomputedTable};
-use crate::nugget::{
-    NuggetSignature, PublicKeyInSignatureGroup, PublicKeyInSisterGroup,
-};
+use crate::nugget::{NuggetSignature, PublicKeyInSignatureGroup, PublicKeyInSisterGroup};
 use crate::serialize::SerializableToBytes;
 use crate::single::PublicKey;
 use crate::NuggetPublicKey;
@@ -41,14 +42,20 @@ where
     E: EngineBLS<SignatureGroup = Projective<C>>,
     C: BLSGLVConfig,
 {
-    fn serialize_with_mode<W: Write>(&self, mut writer: W, compress: Compress) -> Result<(), SerializationError> {
-        self.public_key_in_signature_group.serialize_with_mode(&mut writer, compress)?;
+    fn serialize_with_mode<W: Write>(
+        &self,
+        mut writer: W,
+        compress: Compress,
+    ) -> Result<(), SerializationError> {
+        self.public_key_in_signature_group
+            .serialize_with_mode(&mut writer, compress)?;
         self.public_key.serialize_with_mode(&mut writer, compress)?;
         Ok(())
     }
 
     fn serialized_size(&self, compress: Compress) -> usize {
-        self.public_key_in_signature_group.serialized_size(compress) + self.public_key.serialized_size(compress)
+        self.public_key_in_signature_group.serialized_size(compress)
+            + self.public_key.serialized_size(compress)
     }
 }
 
@@ -70,8 +77,13 @@ where
     E: EngineBLS<SignatureGroup = Projective<C>>,
     C: BLSGLVConfig,
 {
-    fn deserialize_with_mode<R: Read>(mut reader: R, compress: Compress, validate: Validate) -> Result<Self, SerializationError> {
-        let public_key_in_signature_group = Projective::<C>::deserialize_with_mode(&mut reader, compress, validate)?;
+    fn deserialize_with_mode<R: Read>(
+        mut reader: R,
+        compress: Compress,
+        validate: Validate,
+    ) -> Result<Self, SerializationError> {
+        let public_key_in_signature_group =
+            Projective::<C>::deserialize_with_mode(&mut reader, compress, validate)?;
         let public_key = E::PublicKeyGroup::deserialize_with_mode(&mut reader, compress, validate)?;
         Ok(Self::new(public_key_in_signature_group, public_key))
     }
@@ -89,7 +101,8 @@ where
         public_key: E::PublicKeyGroup,
     ) -> Self {
         let generator = <Projective<C> as PrimeGroup>::generator();
-        let glv_decomposition_of_gen_and_pubkey_sums = StrausPrecomputedTable::new(generator, public_key_in_signature_group);
+        let glv_decomposition_of_gen_and_pubkey_sums =
+            StrausPrecomputedTable::new(generator, public_key_in_signature_group);
         Self {
             public_key_in_signature_group,
             public_key,
@@ -165,7 +178,10 @@ where
 {
     fn into_nugget_double_public_key(&self) -> NuggetDoublePublicKeyGLV<E, C> {
         NuggetDoublePublicKeyGLV::new(
-            <SecretKeyVT<E> as NuggetBLS::<E, Projective<C>>>::into_public_key_in_signature_group(self).0,
+            <SecretKeyVT<E> as NuggetBLS<E, Projective<C>>>::into_public_key_in_signature_group(
+                self,
+            )
+            .0,
             self.into_public().0,
         )
     }
@@ -234,7 +250,8 @@ mod tests {
             ..
         } = x;
 
-        let publickey = NuggetDoublePublicKeyGLV::<EB, C>::from_bytes(&publickey.to_bytes()).unwrap();
+        let publickey =
+            NuggetDoublePublicKeyGLV::<EB, C>::from_bytes(&publickey.to_bytes()).unwrap();
         let signature = NuggetSignature::<EB>::from_bytes(&signature.to_bytes()).unwrap();
 
         DoubleSignedMessageGLV {
@@ -260,8 +277,7 @@ mod tests {
 
         let mut keypair = Keypair::<EB>::generate(thread_rng());
         let public_key = DoubleNuggetBLSGLV::into_nugget_double_public_key(&mut keypair);
-        let good_sig =
-            <Keypair<EB> as NuggetBLS<EB, Projective<C>>>::sign(&mut keypair, &good);
+        let good_sig = <Keypair<EB> as NuggetBLS<EB, Projective<C>>>::sign(&mut keypair, &good);
 
         assert!(
             public_key.verify(&good, &good_sig),

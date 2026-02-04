@@ -6,11 +6,9 @@ const NO_OF_MULTI_SIG_SIGNERS: usize = 100;
 use crate::chaum_pedersen_signature::ChaumPedersenSigner;
 use crate::chaum_pedersen_signature::ChaumPedersenVerifier;
 use crate::multi_pop_aggregator::MultiMessageSignatureAggregatorAssumingPoP;
-use crate::nugget::NuggetBLS;
 use crate::Keypair;
 use crate::Message;
-use crate::NuggetDoublePublicKey;
-use crate::PublicKeyInSignatureGroup;
+use crate::Signature as BLSSignature;
 use crate::Signed;
 use crate::{CurveExtraConfig, TinyBLS377, TinyBLS381, UsualBLS};
 use crate::{EngineBLS, PublicKey};
@@ -19,6 +17,7 @@ use ark_ec::twisted_edwards;
 use ark_ec::{CurveConfig, CurveGroup};
 use ark_ed_by_bls12_381;
 use ark_sw_by_bls12_381;
+use core::marker::PhantomData;
 use sha2::Sha256;
 use test::{black_box, Bencher};
 
@@ -26,6 +25,16 @@ use ark_ec::AdditiveGroup;
 use ark_ec::PrimeGroup;
 use ark_ff::UniformRand;
 use rand::thread_rng;
+
+use crate::double_nugget::DoubleNuggetBLS;
+use crate::double_nugget_glv::DoubleNuggetBLSGLV;
+use crate::double_nugget_glv::NuggetDoublePublicKeyGLV;
+use crate::nugget::{NuggetBLS, NuggetSignedMessage};
+use crate::triple_nugget::NuggetTriplePublicKey;
+use crate::triple_nugget::TripleNuggetBLS;
+use crate::NuggetDoublePublicKey;
+use crate::PublicKeyInSignatureGroup;
+
 // #[bench]
 // fn only_generate_key_pairs(b: &mut Bencher) {
 //     b.iter(|| {
@@ -127,33 +136,29 @@ use rand::thread_rng;
 //     });
 // }
 
-use crate::double_nugget::DoubleNuggetBLS;
-use crate::triple_nugget::NuggetTriplePublicKey;
-use crate::triple_nugget::TripleNuggetBLS;
-
 //#[bench]
-fn test_bls_verify_many_signatures_chaum_pedersen_in_signature_group(b: &mut Bencher) {
-    let mut keypair = Keypair::<TinyBLS381>::generate(thread_rng());
-    let message = Message::new(b"ctx", b"test message");
+// fn test_bls_verify_many_signatures_chaum_pedersen_in_signature_group(b: &mut Bencher) {
+//     let mut keypair = Keypair::<TinyBLS381>::generate(thread_rng());
+//     let message = Message::new(b"ctx", b"test message");
 
-    let sig = <Keypair<TinyBLS381> as NuggetBLS<
-        TinyBLS381,
-        <TinyBLS381 as EngineBLS>::SignatureGroup,
-    >>::sign(&mut keypair, &message);
-    let double_nugget_public = keypair.into_nugget_double_public_key();
+//     let sig = <Keypair<TinyBLS381> as NuggetBLS<
+//         TinyBLS381,
+//         <TinyBLS381 as EngineBLS>::SignatureGroup,
+//     >>::sign(&mut keypair, &message);
+//     let double_nugget_public = keypair.into_nugget_double_public_key();
 
-    b.iter(|| {
-        for i in 1..NO_OF_MULTI_SIG_SIGNERS {
-            assert!(
-                <NuggetDoublePublicKey<TinyBLS381> as ChaumPedersenVerifier<
-                    TinyBLS381,
-                    <TinyBLS381 as EngineBLS>::SignatureGroup,
-                    Sha256,
-                >>::verify_cp_signature(&double_nugget_public, &message, &sig)
-            );
-        }
-    });
-}
+//     b.iter(|| {
+//         for i in 1..NO_OF_MULTI_SIG_SIGNERS {
+//             assert!(
+//                 <NuggetDoublePublicKey<TinyBLS381> as ChaumPedersenVerifier<
+//                     TinyBLS381,
+//                     <TinyBLS381 as EngineBLS>::SignatureGroup,
+//                     Sha256,
+//                 >>::verify_cp_signature(&double_nugget_public, &message, &sig)
+//             );
+//         }
+//     });
+// }
 
 //#[bench]
 // fn test_bls_verify_many_signatures_chaum_pedersen_in_edwards_sister_group(b: &mut Bencher) {
@@ -175,35 +180,6 @@ fn test_bls_verify_many_signatures_chaum_pedersen_in_signature_group(b: &mut Ben
 //             > as ChaumPedersenVerifier<
 //                 TinyBLS381,
 //                 ark_ed_by_bls12_381::EdwardsProjective,
-//                 Sha256,
-//             >>::verify_cp_signature(
-//                 &triple_nugget_public_key, &message, &sig
-//             ));
-//         }
-//     });
-// }
-
-//#[bench]
-// fn test_bls_verify_many_signatures_chaum_pedersen_in_weierstrass_sister_group(b: &mut Bencher) {
-//     let mut keypair = Keypair::<TinyBLS381>::generate(thread_rng());
-//     let message = Message::new(b"ctx", b"test message");
-
-//     let sig =
-//         <Keypair<TinyBLS381> as NuggetBLS<TinyBLS381, ark_sw_by_bls12_381::SWProjective>>::sign(
-//             &mut keypair,
-//             &message,
-//         );
-//     let triple_nugget_public_key: NuggetTriplePublicKey<_, ark_sw_by_bls12_381::SWProjective> =
-//         keypair.into_nugget_triple_public_key();
-
-//     b.iter(|| {
-//         for i in 1..NO_OF_MULTI_SIG_SIGNERS {
-//             assert!(<NuggetTriplePublicKey<
-//                 TinyBLS381,
-//                 ark_sw_by_bls12_381::SWProjective,
-//             > as ChaumPedersenVerifier<
-//                 TinyBLS381,
-//                 ark_sw_by_bls12_381::SWProjective,
 //                 Sha256,
 //             >>::verify_cp_signature(
 //                 &triple_nugget_public_key, &message, &sig
@@ -376,6 +352,72 @@ fn test_bls_verify_many_signatures_chaum_pedersen_in_signature_group(b: &mut Ben
 // }
 
 #[bench]
+fn test_bls_verify_many_signatures_chaum_pedersen_in_weierstrass_sister_group_straus(
+    b: &mut Bencher,
+) {
+    let mut keypair = Keypair::<TinyBLS381>::generate(thread_rng());
+    let message = Message::new(b"ctx", b"test message");
+
+    let sig =
+        <Keypair<TinyBLS381> as NuggetBLS<TinyBLS381, ark_sw_by_bls12_381::SWProjective>>::sign(
+            &mut keypair,
+            &message,
+        );
+
+    let triple_nugget_public_key: NuggetTriplePublicKey<_, ark_sw_by_bls12_381::SWProjective> =
+        keypair.into_nugget_triple_public_key();
+
+    b.iter(|| {
+        for i in 0..NO_OF_MULTI_SIG_SIGNERS {
+            let i = <NuggetTriplePublicKey<
+                TinyBLS381,
+                ark_sw_by_bls12_381::SWProjective,
+            > as ChaumPedersenVerifier<
+                TinyBLS381,
+                ark_sw_by_bls12_381::SWProjective,
+                Sha256,
+            >>::verify_cp_signature(
+                &triple_nugget_public_key, &message, &sig
+            );
+            assert!(i)
+        }
+    });
+}
+
+#[bench]
+fn test_bls_verify_many_signatures_chaum_pedersen_in_weierstrass_sister_group_naive(
+    b: &mut Bencher,
+) {
+    let mut keypair = Keypair::<TinyBLS381>::generate(thread_rng());
+    let message = Message::new(b"ctx", b"test message");
+
+    let sig =
+        <Keypair<TinyBLS381> as NuggetBLS<TinyBLS381, ark_sw_by_bls12_381::SWProjective>>::sign(
+            &mut keypair,
+            &message,
+        );
+
+    let triple_nugget_public_key: NuggetTriplePublicKey<_, ark_sw_by_bls12_381::SWProjective> =
+        keypair.into_nugget_triple_public_key();
+
+    b.iter(|| {
+        for i in 0..NO_OF_MULTI_SIG_SIGNERS {
+            let i = <NuggetTriplePublicKey<
+                TinyBLS381,
+                ark_sw_by_bls12_381::SWProjective,
+            > as ChaumPedersenVerifier<
+                TinyBLS381,
+                ark_sw_by_bls12_381::SWProjective,
+                Sha256,
+            >>::verify_cp_signature_naive(
+                &triple_nugget_public_key, &message, &sig
+            );
+            assert!(i)
+        }
+    });
+}
+
+#[bench]
 fn test_verify_cp_signature_naive(b: &mut Bencher) {
     type EB = TinyBLS381;
 
@@ -386,21 +428,25 @@ fn test_verify_cp_signature_naive(b: &mut Bencher) {
         &message,
     );
 
-    let publickey = keypair.into_nugget_double_public_key();
+    let publickey: NuggetDoublePublicKey<EB> =
+        DoubleNuggetBLS::<EB>::into_nugget_double_public_key(&keypair);
 
     //we chaum pederesen verification which is faster
     b.iter(|| {
-        let i = ChaumPedersenVerifier::<EB, <EB as EngineBLS>::SignatureGroup, Sha256>::verify_cp_signature(
+        for i in 0..NO_OF_MULTI_SIG_SIGNERS {
+
+        let i = ChaumPedersenVerifier::<EB, <EB as EngineBLS>::SignatureGroup, Sha256>::verify_cp_signature_naive(
             &publickey,
             &message,
             &good_sig0,
         );
-         assert!(i)
+            assert!(i)
+        }
      })
 }
 
 #[bench]
-fn test_verify_cp_signature_strauss_shamir(b: &mut Bencher) {
+fn test_verify_cp_signature_strauss_shamir_without_glv(b: &mut Bencher) {
     type EB = TinyBLS381;
 
     let mut keypair = Keypair::<EB>::generate(thread_rng());
@@ -410,16 +456,20 @@ fn test_verify_cp_signature_strauss_shamir(b: &mut Bencher) {
         &message,
     );
 
-    let publickey = keypair.into_nugget_double_public_key();
+    let publickey: NuggetDoublePublicKey<EB> =
+        DoubleNuggetBLS::<EB>::into_nugget_double_public_key(&keypair);
 
     //we chaum pederesen verification which is faster
     b.iter(|| {
+        for i in 0..NO_OF_MULTI_SIG_SIGNERS {
+
         let i = ChaumPedersenVerifier::<EB, <EB as EngineBLS>::SignatureGroup, Sha256>::verify_cp_signature(
             &publickey,
             &message,
             &good_sig0,
         );
-         assert!(i || !i)
+            assert!(i)
+        }
      })
 }
 
@@ -434,17 +484,74 @@ fn test_verify_cp_signature_ark_msm(b: &mut Bencher) {
         &message,
     );
 
-    let publickey = keypair.into_nugget_double_public_key();
+    let publickey: NuggetDoublePublicKey<EB> =
+        DoubleNuggetBLS::<EB>::into_nugget_double_public_key(&keypair);
 
     //we chaum pederesen verification which is faster
     b.iter(|| {
-        let i = ChaumPedersenVerifier::<EB, <EB as EngineBLS>::SignatureGroup, Sha256>::verify_cp_signature_with_msm_optimization(
-            &publickey,
-            &message,
-            &good_sig0,
-        );
-         assert!(i || !i)
+        for i in 0..NO_OF_MULTI_SIG_SIGNERS {
+            let i = ChaumPedersenVerifier::<EB, <EB as EngineBLS>::SignatureGroup, Sha256>::verify_cp_signature_with_msm_optimization(
+                &publickey,
+                &message,
+                &good_sig0,
+            );
+            assert!(i)
+        }
      })
+}
+
+#[bench]
+fn test_verify_cp_signature_strauss_shamir_with_glv(b: &mut Bencher) {
+    type EB = TinyBLS381;
+
+    let mut keypair = Keypair::<EB>::generate(thread_rng());
+    let message = Message::new(b"ctx", b"test message");
+    let good_sig0 = <Keypair<_> as NuggetBLS<_, <EB as EngineBLS>::SignatureGroup>>::sign(
+        &mut keypair,
+        &message,
+    );
+
+    let publickey: NuggetDoublePublicKeyGLV<EB, ark_bls12_381::g1::Config> =
+        DoubleNuggetBLSGLV::<EB, ark_bls12_381::g1::Config>::into_nugget_double_public_key(
+            &keypair,
+        );
+
+    //we chaum pederesen verification which is faster
+    b.iter(|| {
+        for i in 0..NO_OF_MULTI_SIG_SIGNERS {
+            let i = ChaumPedersenVerifier::<EB, <EB as EngineBLS>::SignatureGroup, Sha256>::verify_cp_signature(
+                &publickey,
+                &message,
+                &good_sig0,
+            );
+            assert!(i);
+        }
+     })
+}
+
+#[bench]
+fn test_verify_signature_with_pairing(b: &mut Bencher) {
+    type EB = TinyBLS381;
+
+    let mut keypair = Keypair::<EB>::generate(thread_rng());
+    let message = Message::new(b"ctx", b"test message");
+    let good_sig0 = <Keypair<_> as NuggetBLS<_, <EB as EngineBLS>::SignatureGroup>>::sign(
+        &mut keypair,
+        &message,
+    );
+
+    let publickey: NuggetDoublePublicKeyGLV<EB, ark_bls12_381::g1::Config> =
+        DoubleNuggetBLSGLV::<EB, ark_bls12_381::g1::Config>::into_nugget_double_public_key(
+            &keypair,
+        );
+
+    //we chaum pederesen verification which is faster
+    b.iter(|| {
+        for i in 0..NO_OF_MULTI_SIG_SIGNERS {
+            let i = keypair.public.verify(&message, &BLSSignature(good_sig0.0));
+            assert!(i);
+        }
+    })
 }
 
 //#[bench]
@@ -474,4 +581,29 @@ fn test_verify_cp_signature_ark_msm(b: &mut Bencher) {
 // 	   point_1 * scalar;
 //            });
 
+// }
+
+// #[bench]
+// fn test_verify_cp_signature_glv_precomputed(b: &mut Bencher) {
+//     type EB = TinyBLS381;
+
+//     let mut keypair = Keypair::<EB>::generate(thread_rng());
+//     let message = Message::new(b"ctx", b"test message");
+//     let good_sig0 = <Keypair<_> as NuggetBLS<_, <EB as EngineBLS>::SignatureGroup>>::sign(
+//         &mut keypair,
+//         &message,
+//     );
+
+//     let publickey: NuggetDoublePublicKeyGLV<EB, ark_bls12_381::g1::Config> =
+//         keypair.into_nugget_double_public_key();
+
+//     // Verify with GLV precomputed 256-element table
+//     b.iter(|| {
+//         let i = ChaumPedersenVerifier::<EB, <EB as EngineBLS>::SignatureGroup, Sha256>::verify_cp_signature(
+//             &publickey,
+//             &message,
+//             &good_sig0,
+//         );
+//         assert!(i)
+//     })
 // }

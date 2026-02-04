@@ -1,9 +1,12 @@
 use alloc::vec::Vec;
 
-use ark_ec::{CurveGroup, PrimeGroup};
+use ark_ec::{CurveGroup, PrimeGroup, VariableBaseMSM};
 use ark_ff::field_hashers::{DefaultFieldHasher, HashToField};
 
 use digest::FixedOutputReset;
+
+#[cfg(feature = "benchmark")]
+use std::time::Instant;
 
 use crate::dual_scalar_mul::DualScalarMultiplication;
 use crate::engine::EngineBLS;
@@ -39,7 +42,7 @@ where
 /// This should be implemented by public key
 pub trait ChaumPedersenVerifier<
     E: EngineBLS,
-    S: CurveGroup + DualScalarMultiplication + SerializableToBytes ,
+    S: CurveGroup + DualScalarMultiplication + SerializableToBytes,
     H: FixedOutputReset + Default + Clone,
 >: NuggetPublicKey<E, S> where
     S: PrimeGroup<ScalarField = E::Scalar>,
@@ -51,13 +54,31 @@ pub trait ChaumPedersenVerifier<
         message: &Message,
         signature_proof: &ChaumPedersenSignature<E>,
     ) -> bool {
+        #[cfg(feature = "benchmark")]
+        let total_start = Instant::now();
+
         let signature_as_scalars_of_sister_group: (S::ScalarField, S::ScalarField) =
             (signature_proof.1 .0, signature_proof.1 .1);
+
+        #[cfg(feature = "benchmark")]
+        let start = Instant::now();
         let A_check_point = <S as PrimeGroup>::generator() * signature_as_scalars_of_sister_group.1
             + self.into_public_key_in_sister_group().0 * signature_as_scalars_of_sister_group.0;
+        #[cfg(feature = "benchmark")]
+        println!(
+            "[Naive] A_check_point (2 scalar muls + add): {:?}",
+            start.elapsed()
+        );
 
+        #[cfg(feature = "benchmark")]
+        let start = Instant::now();
         let B_check_point = message.hash_to_signature_curve::<E>() * signature_proof.1 .1
             + signature_proof.0 * signature_proof.1 .0;
+        #[cfg(feature = "benchmark")]
+        println!(
+            "[Naive] B_check_point (2 scalar muls + add): {:?}",
+            start.elapsed()
+        );
 
         let A_point_as_bytes = A_check_point.to_bytes();
         let B_point_as_bytes = E::signature_point_to_byte(&B_check_point);
@@ -82,6 +103,9 @@ pub trait ChaumPedersenVerifier<
         >>::new(&[]);
         let c_check: <<E as EngineBLS>::PublicKeyGroup as PrimeGroup>::ScalarField =
             hasher.hash_to_field::<1>(resulting_proof_basis.as_slice())[0];
+
+        #[cfg(feature = "benchmark")]
+        println!("[Naive] TOTAL: {:?}", total_start.elapsed());
 
         c_check == signature_proof.1 .0
     }
@@ -92,10 +116,16 @@ pub trait ChaumPedersenVerifier<
         message: &Message,
         signature_proof: &ChaumPedersenSignature<E>,
     ) -> bool {
+        #[cfg(feature = "benchmark")]
+        let total_start = Instant::now();
+
         let signature_as_scalars_of_sister_group: (S::ScalarField, S::ScalarField) =
             (signature_proof.1 .0, signature_proof.1 .1);
         let gen = <S as PrimeGroup>::generator();
         let pubkey = self.into_public_key_in_sister_group().0;
+
+        #[cfg(feature = "benchmark")]
+        let start = Instant::now();
         let A_check_point = S::dual_scalar_mul(
             &signature_as_scalars_of_sister_group.1,
             &signature_as_scalars_of_sister_group.0,
@@ -103,13 +133,25 @@ pub trait ChaumPedersenVerifier<
             &pubkey,
             Some(self.straus_sister_group_precomputed_points()),
         );
+        #[cfg(feature = "benchmark")]
+        println!(
+            "[CP] A_check_point (dual_scalar_mul): {:?}",
+            start.elapsed()
+        );
 
+        #[cfg(feature = "benchmark")]
+        let start = Instant::now();
         let B_check_point = E::SignatureGroup::dual_scalar_mul(
             &signature_proof.1 .0,
             &signature_proof.1 .1,
             &signature_proof.0,
             &message.hash_to_signature_curve::<E>(),
-            Some(&[signature_proof.0 + message.hash_to_signature_curve::<E>()]),
+            None, //not precomputed //Some(&[signature_proof.0 + message.hash_to_signature_curve::<E>()]),
+        );
+        #[cfg(feature = "benchmark")]
+        println!(
+            "[CP] B_check_point (dual_scalar_mul): {:?}",
+            start.elapsed()
         );
 
         let A_point_as_bytes = A_check_point.to_bytes();
@@ -135,6 +177,9 @@ pub trait ChaumPedersenVerifier<
         >>::new(&[]);
         let c_check: <<E as EngineBLS>::PublicKeyGroup as PrimeGroup>::ScalarField =
             hasher.hash_to_field::<1>(resulting_proof_basis.as_slice())[0];
+
+        #[cfg(feature = "benchmark")]
+        println!("[CP] TOTAL: {:?}", total_start.elapsed());
 
         c_check == signature_proof.1 .0
     }
@@ -147,20 +192,29 @@ pub trait ChaumPedersenVerifier<
     ) -> bool {
         let signature_as_scalars_of_sister_group: (S::ScalarField, S::ScalarField) =
             (signature_proof.1 .0, signature_proof.1 .1);
-        let A_check_point = S::msm((vec![<S as PrimeGroup>::generator().into_affine(),
-                                     self.into_public_key_in_sister_group().0.into_affine()]).as_slice(),
-                                   (vec![signature_as_scalars_of_sister_group.1,
-                                     signature_as_scalars_of_sister_group.0,]).as_slice(),
-        
-        ).unwrap();
+        let A_check_point = S::msm(
+            (vec![
+                <S as PrimeGroup>::generator().into_affine(),
+                self.into_public_key_in_sister_group().0.into_affine(),
+            ])
+            .as_slice(),
+            (vec![
+                signature_as_scalars_of_sister_group.1,
+                signature_as_scalars_of_sister_group.0,
+            ])
+            .as_slice(),
+        )
+        .unwrap();
 
-        let B_check_point = E::SignatureGroup::dual_scalar_mul(
-            &signature_proof.1 .0,
-            &signature_proof.1 .1,
-            &signature_proof.0,
-            &message.hash_to_signature_curve::<E>(),
-            Some(&[signature_proof.0 + message.hash_to_signature_curve::<E>()]),
-        );
+        let B_check_point = E::SignatureGroup::msm(
+            (vec![
+                signature_proof.0.into_affine(),
+                message.hash_to_signature_curve::<E>().into_affine(),
+            ])
+            .as_slice(),
+            (vec![signature_proof.1 .0, signature_proof.1 .1]).as_slice(),
+        )
+        .unwrap();
 
         let A_point_as_bytes = A_check_point.to_bytes();
         let B_point_as_bytes = E::signature_point_to_byte(&B_check_point);
@@ -280,41 +334,139 @@ mod tests {
 
     use super::*;
 
-    use crate::{DoubleNuggetBLS, Keypair, TinyBLS381};
+    use crate::double_nugget_glv::{DoubleNuggetBLSGLV, NuggetDoublePublicKeyGLV};
+    use crate::{DoubleNuggetBLS, Keypair, NuggetDoublePublicKey, TinyBLS381};
     use sha2::Sha256;
 
     #[test]
-    fn test_chaum_pedersen_verification()
-    {
+    fn test_chaum_pedersen_verification() {
         type EB = TinyBLS381;
 
         let message = Message::new(b"ctx", b"test message");
 
         let mut keypair = Keypair::<EB>::generate(thread_rng());
-        let good_sig =
-            <Keypair<EB> as NuggetBLS<EB, <EB as EngineBLS>::SignatureGroup>>::sign(&mut keypair, &message);
+        let good_sig = <Keypair<EB> as NuggetBLS<EB, <EB as EngineBLS>::SignatureGroup>>::sign(
+            &mut keypair,
+            &message,
+        );
 
-        let publickey = keypair.into_nugget_double_public_key();
+        let publickey: NuggetDoublePublicKey<EB> =
+            DoubleNuggetBLS::<EB>::into_nugget_double_public_key(&keypair);
 
-        assert!(ChaumPedersenVerifier::<EB, <EB as EngineBLS>::SignatureGroup, Sha256>::verify_cp_signature_naive(
-             &publickey,
-             &message,
-             &good_sig,
-         ));
+        assert!(ChaumPedersenVerifier::<
+            EB,
+            <EB as EngineBLS>::SignatureGroup,
+            Sha256,
+        >::verify_cp_signature_naive(
+            &publickey, &message, &good_sig,
+        ));
 
-        assert!(ChaumPedersenVerifier::<EB, <EB as EngineBLS>::SignatureGroup, Sha256>::verify_cp_signature(
-             &publickey,
-             &message,
-             &good_sig,
-         ));
+        assert!(ChaumPedersenVerifier::<
+            EB,
+            <EB as EngineBLS>::SignatureGroup,
+            Sha256,
+        >::verify_cp_signature(
+            &publickey, &message, &good_sig,
+        ));
 
-        assert!(ChaumPedersenVerifier::<EB, <EB as EngineBLS>::SignatureGroup, Sha256>::verify_cp_signature_with_msm_optimization(
-             &publickey,
-             &message,
-             &good_sig,
-         ));
+        assert!(ChaumPedersenVerifier::<
+            EB,
+            <EB as EngineBLS>::SignatureGroup,
+            Sha256,
+        >::verify_cp_signature_with_msm_optimization(
+            &publickey, &message, &good_sig,
+        ));
 
+        let publickey_glv: NuggetDoublePublicKeyGLV<EB, ark_bls12_381::g1::Config> =
+            DoubleNuggetBLSGLV::<EB, ark_bls12_381::g1::Config>::into_nugget_double_public_key(
+                &keypair,
+            );
+
+        assert!(ChaumPedersenVerifier::<
+            EB,
+            <EB as EngineBLS>::SignatureGroup,
+            Sha256,
+        >::verify_cp_signature(
+            &publickey_glv, &message, &good_sig,
+        ));
     }
 
-    
+    #[test]
+    fn test_chaum_pedersen_verification_weierstrass_sister_curve() {
+        #[cfg(feature = "benchmark")]
+        use std::time::Instant;
+
+        use crate::triple_nugget::{NuggetTriplePublicKey, TripleNuggetBLS};
+        use ark_sw_by_bls12_381::SWProjective;
+
+        type EB = TinyBLS381;
+        type S = SWProjective;
+
+        let message = Message::new(b"ctx", b"test message");
+
+        let mut keypair = Keypair::<EB>::generate(thread_rng());
+        let good_sig = <Keypair<EB> as NuggetBLS<EB, S>>::sign(&mut keypair, &message);
+
+        let publickey: NuggetTriplePublicKey<EB, S> =
+            TripleNuggetBLS::<EB, S>::into_nugget_triple_public_key(&keypair);
+
+        // #[cfg(feature = "benchmark")]
+        // let start = Instant::now();
+        // assert!(ChaumPedersenVerifier::<EB, S, Sha256>::verify_cp_signature_naive(
+        //     &publickey,
+        //     &message,
+        //     &good_sig,
+        // ));
+        // #[cfg(feature = "benchmark")]
+        // println!("[SW Test] verify_cp_signature_naive: {:?}", start.elapsed());
+
+        #[cfg(feature = "benchmark")]
+        let start = Instant::now();
+        assert!(ChaumPedersenVerifier::<EB, S, Sha256>::verify_cp_signature(
+            &publickey, &message, &good_sig,
+        ));
+        #[cfg(feature = "benchmark")]
+        println!(
+            "[SW Test] verify_cp_signature (Strauss-Shamir): {:?}",
+            start.elapsed()
+        );
+
+        // #[cfg(feature = "benchmark")]
+        // let start = Instant::now();
+        // assert!(ChaumPedersenVerifier::<EB, S, Sha256>::verify_cp_signature_with_msm_optimization(
+        //     &publickey,
+        //     &message,
+        //     &good_sig,
+        // ));
+        // #[cfg(feature = "benchmark")]
+        // println!("[SW Test] verify_cp_signature_with_msm_optimization: {:?}", start.elapsed());
+
+        // Also test with G1 as the sister group (GLV path)
+        let good_sig_g1_as_sister = <Keypair<EB> as NuggetBLS<
+            EB,
+            <EB as EngineBLS>::SignatureGroup,
+        >>::sign(&mut keypair, &message);
+
+        let publickey_glv: NuggetDoublePublicKeyGLV<EB, ark_bls12_381::g1::Config> =
+            DoubleNuggetBLSGLV::<EB, ark_bls12_381::g1::Config>::into_nugget_double_public_key(
+                &keypair,
+            );
+
+        #[cfg(feature = "benchmark")]
+        let start = Instant::now();
+        assert!(ChaumPedersenVerifier::<
+            EB,
+            <EB as EngineBLS>::SignatureGroup,
+            Sha256,
+        >::verify_cp_signature(
+            &publickey_glv,
+            &message,
+            &good_sig_g1_as_sister,
+        ));
+        #[cfg(feature = "benchmark")]
+        println!(
+            "[G1 Test] verify_cp_signature (Straus+GLV G1 as Sister): {:?}",
+            start.elapsed()
+        );
+    }
 }
