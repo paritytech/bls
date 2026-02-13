@@ -211,7 +211,6 @@ mod tests {
     use super::*;
 
     use ark_bls12_381::Bls12_381;
-    use ark_bls12_381_g1;
     use ark_ec::bls12::Bls12Config;
     use ark_ec::hashing::curve_maps::wb::{WBConfig, WBMap};
     use ark_ec::hashing::map_to_curve_hasher::MapToCurve;
@@ -292,10 +291,6 @@ mod tests {
 
     impl SerializableToBytes for ark_sw_by_bls12_381::SWProjective {
         const SERIALIZED_BYTES_SIZE: usize = 33;
-    }
-
-    impl SerializableToBytes for ark_bls12_381_g1::SWProjective {
-        const SERIALIZED_BYTES_SIZE: usize = 48;
     }
 
     // Mark test curves as NonGLVCurve to get the Strauss-Shamir implementation

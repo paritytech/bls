@@ -23,9 +23,9 @@
 use ark_ff::Zero;
 use std::collections::HashMap;
 
-use super::single::SignedMessage;
-use super::verifiers::verify_with_distinct_messages;
-use super::*;
+use w3f_bls::single::SignedMessage;
+use w3f_bls::verifiers::verify_with_distinct_messages;
+use w3f_bls::*;
 
 /// Error tyoe for non-distinct messages found during distinct
 /// message aggregation.

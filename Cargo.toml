@@ -11,9 +11,10 @@ edition = "2018"
 
 [workspace]
 members = [
-    ".",           # bls library
-    "ed_by_bls12_381",   
-    "sw_by_bls12_381",   
+    ".",
+    "experimental",
+    "experimental/ed_by_bls12_381",
+    "experimental/sw_by_bls12_381",
 ]
 
 [workspace.package]
@@ -53,9 +54,8 @@ digest = { version = "0.10", default-features = false }
 ark-bls12-381 = { workspace = true }
 ark-bls12-377 = { workspace = true }
 
-ark-ed-by-bls12-381 = {path = "./ed_by_bls12_381"}
-ark-sw-by-bls12-381 = {path = "./sw_by_bls12_381"}
-ark-bls12-381-g1 = {path = "./bls12_381_g1"}
+ark-ed-by-bls12-381 = {path = "./experimental/ed_by_bls12_381"}
+ark-sw-by-bls12-381 = {path = "./experimental/sw_by_bls12_381"}
 
 zeroize = { version = "1.0", default-features = false, features = [ "zeroize_derive" ] }
 
@@ -65,5 +65,4 @@ hex-literal = "0.3.4"
 [features]
 default = ["std"]
 std = ["rand/std"]
-experimental = []
 benchmark = ["std"]

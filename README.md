@@ -112,7 +112,8 @@ use ark_ff::Zero;
 use rand::thread_rng;
 
 use w3f_bls::{
-    single_pop_aggregator::SignatureAggregatorAssumingPoP, DoublePublicKeyScheme, EngineBLS, Keypair, Message, PublicKey, PublicKeyInSignatureGroup, Signed, TinyBLS, TinyBLS377,
+    single_pop_aggregator::SignatureAggregatorAssumingPoP, DoubleNuggetBLS, EngineBLS, Keypair,
+    Message, NuggetPublicKey, PublicKey, PublicKeyInSignatureGroup, Signed, TinyBLS, TinyBLS377,
 };
 
 
@@ -123,7 +124,7 @@ let mut keypairs: Vec<_> = (0..3)
     .collect();
 let pub_keys_in_sig_grp: Vec<PublicKeyInSignatureGroup<TinyBLS377>> = keypairs
     .iter()
-    .map(|k| k.into_public_key_in_signature_group())
+    .map(|k| DoubleNuggetBLS::<TinyBLS377>::into_nugget_double_public_key(k).into_public_key_in_signature_group())
     .collect();
 
 let mut prover_aggregator =

@@ -12,7 +12,6 @@ use crate::Signature as BLSSignature;
 use crate::Signed;
 use crate::{CurveExtraConfig, TinyBLS377, TinyBLS381, UsualBLS};
 use crate::{EngineBLS, PublicKey};
-use ark_bls12_381_g1;
 use ark_ec::twisted_edwards;
 use ark_ec::{CurveConfig, CurveGroup};
 use ark_ed_by_bls12_381;
@@ -203,10 +202,10 @@ use crate::PublicKeyInSignatureGroup;
 
 // #[bench]
 // fn test_scalar_mul_in_signature_group_no_glv_no_mul_by_a(b: &mut Bencher) {
-//     let mut gen = <ark_bls12_381_g1::SWProjective as PrimeGroup>::generator();
+//     let mut gen = <ark_bls12_381::G1Projective as PrimeGroup>::generator();
 
 //     b.iter(|| {
-//         let mut random_scalar = <ark_bls12_381_g1::SWProjective as PrimeGroup>::ScalarField::rand(&mut thread_rng());
+//         let mut random_scalar = <ark_bls12_381::G1Projective as PrimeGroup>::ScalarField::rand(&mut thread_rng());
 
 //         for _i in 1..NO_OF_MULTI_SIG_SIGNERS {
 //              gen *= random_scalar;
@@ -232,11 +231,11 @@ use crate::PublicKeyInSignatureGroup;
 
 // #[bench]
 // fn test_add_in_signature_group_no_glv_no_mul_by_a(b: &mut Bencher) {
-//     let mut gen = <ark_bls12_381_g1::SWProjective as PrimeGroup>::generator();
+//     let mut gen = <ark_bls12_381::G1Projective as PrimeGroup>::generator();
 
 //     let mut random_point = loop {
-//         let mut r1 = <ark_bls12_381_g1::SWConfig as CurveConfig>::BaseField::rand(&mut thread_rng());
-//         let mut random_point = ark_bls12_381_g1::SWAffine::get_point_from_x_unchecked(r1, false);
+//         let mut r1 = <ark_bls12_381::g1::Config as CurveConfig>::BaseField::rand(&mut thread_rng());
+//         let mut random_point = ark_bls12_381::G1Affine::get_point_from_x_unchecked(r1, false);
 //         if random_point != None {
 //             break random_point.unwrap();
 //         }
@@ -274,10 +273,10 @@ use crate::PublicKeyInSignatureGroup;
 
 // #[bench]
 // fn test_double_in_signature_group_no_glv_no_mul_by_a(b: &mut Bencher) {
-//     let mut gen = <ark_bls12_381_g1::SWProjective as PrimeGroup>::generator();
+//     let mut gen = <ark_bls12_381::G1Projective as PrimeGroup>::generator();
 
 //     b.iter(|| {
-//         let mut random_scalar = <ark_bls12_381_g1::SWProjective as PrimeGroup>::ScalarField::rand(&mut thread_rng());
+//         let mut random_scalar = <ark_bls12_381::G1Projective as PrimeGroup>::ScalarField::rand(&mut thread_rng());
 
 //         for _i in 1..NO_OF_MULTI_SIG_SIGNERS {
 //              gen.double_in_place();

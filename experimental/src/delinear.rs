@@ -27,9 +27,9 @@ use sha3::{
 
 use std::collections::HashMap;
 
-use super::single::SignedMessage;
-use super::verifiers::verify_with_distinct_messages;
-use super::*;
+use w3f_bls::single::SignedMessage;
+use w3f_bls::verifiers::verify_with_distinct_messages;
+use w3f_bls::*;
 
 /// Delinearized batched and aggregated BLS signatures.
 ///

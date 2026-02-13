@@ -122,13 +122,6 @@ pub mod multi_pop_aggregator;
 #[cfg(feature = "std")]
 pub mod single_pop_aggregator;
 
-#[cfg(feature = "experimental")]
-pub mod bit;
-#[cfg(feature = "experimental")]
-pub mod delinear;
-#[cfg(feature = "experimental")]
-pub mod distinct;
-
 pub use engine::*;
 
 pub use double_nugget::{DoubleNuggetBLS, DoubleSignedMessage, NuggetDoublePublicKey};
