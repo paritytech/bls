@@ -660,7 +660,8 @@ mod tests {
         assert!(bitsig1.merge(&bitsig2).is_err());
 
         let mut multimsg =
-            w3f_bls::multi_pop_aggregator::MultiMessageSignatureAggregatorAssumingPoP::<ZBLS>::new();
+            w3f_bls::multi_pop_aggregator::MultiMessageSignatureAggregatorAssumingPoP::<ZBLS>::new(
+            );
         multimsg.aggregate(&bitsig1);
         multimsg.aggregate(&bitsig2);
         assert!(multimsg.verify()); // verifiers::verify_with_distinct_messages(&dms,true)

@@ -27,49 +27,46 @@ Aggregated and blind signatures are almost the only reasons anyone would conside
 
 As a rule, aggregation that requires distinct messages still requires one miller loop step per message, so aggregate signatures have rather slow verification times.  You can nevertheless achieve quite small signature sizes like
 
-```rust
-#[cfg(feature = "experimental")]
-use w3f_bls::{distinct::DistinctMessages, Keypair, Message, Signed, ZBLS};
+```rust,ignore
+use w3f_bls::{Keypair, Message, Signed, ZBLS};
+use w3f_bls_experimental::distinct::DistinctMessages;
 
-#[cfg(feature = "experimental")]
-{
-	let mut keypairs = [
-		Keypair::<ZBLS>::generate(::rand::thread_rng()),
-		Keypair::<ZBLS>::generate(::rand::thread_rng()),
-	];
-	let msgs = [
-		"The ships",
-		"hung in the sky",
-		"in much the same way",
-		"that bricks don’t.",
-	]
+let mut keypairs = [
+	Keypair::<ZBLS>::generate(::rand::thread_rng()),
+	Keypair::<ZBLS>::generate(::rand::thread_rng()),
+];
+let msgs = [
+	"The ships",
+	"hung in the sky",
+	"in much the same way",
+	"that bricks don't.",
+]
+.iter()
+.map(|m| Message::new(b"Some context", m.as_bytes()))
+.collect::<Vec<_>>();
+let sigs = msgs
 	.iter()
-	.map(|m| Message::new(b"Some context", m.as_bytes()))
+	.zip(keypairs.iter_mut())
+	.map(|(m, k)| k.signed_message(m))
 	.collect::<Vec<_>>();
-	let sigs = msgs
-		.iter()
-		.zip(keypairs.iter_mut())
-		.map(|(m, k)| k.signed_message(m))
-		.collect::<Vec<_>>();
 
-		let dms = sigs
-		.iter()
-		.try_fold(DistinctMessages::<ZBLS>::new(), |dm, sig| dm.add(sig))
-		.unwrap();
-	let signature = <&DistinctMessages<ZBLS> as Signed>::signature(&&dms);
+let dms = sigs
+	.iter()
+	.try_fold(DistinctMessages::<ZBLS>::new(), |dm, sig| dm.add(sig))
+	.unwrap();
+let signature = <&DistinctMessages<ZBLS> as Signed>::signature(&&dms);
 
-		let publickeys = keypairs.iter().map(|k| k.public).collect::<Vec<_>>();
-	let mut dms = msgs
-		.into_iter()
-		.zip(publickeys)
-		.try_fold(
-			DistinctMessages::<ZBLS>::new(),
-			|dm, (message, publickey)| dm.add_message_n_publickey(message, publickey),
-		)
-		.unwrap();
-	dms.add_signature(&signature);
-	assert!(dms.verify())
-}
+let publickeys = keypairs.iter().map(|k| k.public).collect::<Vec<_>>();
+let mut dms = msgs
+	.into_iter()
+	.zip(publickeys)
+	.try_fold(
+		DistinctMessages::<ZBLS>::new(),
+		|dm, (message, publickey)| dm.add_message_n_publickey(message, publickey),
+	)
+	.unwrap();
+dms.add_signature(&signature);
+assert!(dms.verify())
 ```
 Anyone who receives the already aggregated signature along with a list of messages and public keys might reconstruct the signature as shown in the above example.
 
