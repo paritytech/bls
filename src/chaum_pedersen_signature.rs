@@ -59,6 +59,7 @@ pub trait ChaumPedersenVerifier<
 
         let signature_as_scalars_of_sister_group: (S::ScalarField, S::ScalarField) =
             (signature_proof.1 .0, signature_proof.1 .1);
+        let message_as_point_on_signature_curve = message.hash_to_signature_curve::<E>();
 
         #[cfg(feature = "benchmark")]
         let start = Instant::now();
@@ -72,7 +73,7 @@ pub trait ChaumPedersenVerifier<
 
         #[cfg(feature = "benchmark")]
         let start = Instant::now();
-        let B_check_point = message.hash_to_signature_curve::<E>() * signature_proof.1 .1
+        let B_check_point = message_as_point_on_signature_curve * signature_proof.1 .1
             + signature_proof.0 * signature_proof.1 .0;
         #[cfg(feature = "benchmark")]
         println!(
@@ -85,7 +86,7 @@ pub trait ChaumPedersenVerifier<
 
         let signature_point_as_bytes = E::signature_point_to_byte(&signature_proof.0);
         let message_point_as_bytes =
-            E::signature_point_to_byte(&message.hash_to_signature_curve::<E>());
+            E::signature_point_to_byte(&message_as_point_on_signature_curve);
         let public_key_in_signature_group_as_bytes =
             E::signature_point_to_byte(&self.into_public_key_in_signature_group().0);
 
@@ -124,6 +125,11 @@ pub trait ChaumPedersenVerifier<
         let gen = <S as PrimeGroup>::generator();
         let pubkey = self.into_public_key_in_sister_group().0;
 
+        let message_as_point_on_signature_curve = message.hash_to_signature_curve::<E>();
+        let message_point_as_bytes =
+            E::signature_point_to_byte(&message_as_point_on_signature_curve);
+
+
         #[cfg(feature = "benchmark")]
         let start = Instant::now();
         let A_check_point = S::dual_scalar_mul(
@@ -145,7 +151,7 @@ pub trait ChaumPedersenVerifier<
             &signature_proof.1 .0,
             &signature_proof.1 .1,
             &signature_proof.0,
-            &message.hash_to_signature_curve::<E>(),
+            &message_as_point_on_signature_curve,
             None, //not precomputed //Some(&[signature_proof.0 + message.hash_to_signature_curve::<E>()]),
         );
         #[cfg(feature = "benchmark")]
@@ -158,8 +164,6 @@ pub trait ChaumPedersenVerifier<
         let B_point_as_bytes = E::signature_point_to_byte(&B_check_point);
 
         let signature_point_as_bytes = E::signature_point_to_byte(&signature_proof.0);
-        let message_point_as_bytes =
-            E::signature_point_to_byte(&message.hash_to_signature_curve::<E>());
         let public_key_in_signature_group_as_bytes =
             E::signature_point_to_byte(&self.into_public_key_in_signature_group().0);
 
@@ -192,6 +196,9 @@ pub trait ChaumPedersenVerifier<
     ) -> bool {
         let signature_as_scalars_of_sister_group: (S::ScalarField, S::ScalarField) =
             (signature_proof.1 .0, signature_proof.1 .1);
+
+        let message_as_point_on_signature_curve = message.hash_to_signature_curve::<E>();
+
         let A_check_point = S::msm(
             (vec![
                 <S as PrimeGroup>::generator().into_affine(),
@@ -209,7 +216,7 @@ pub trait ChaumPedersenVerifier<
         let B_check_point = E::SignatureGroup::msm(
             (vec![
                 signature_proof.0.into_affine(),
-                message.hash_to_signature_curve::<E>().into_affine(),
+                message_as_point_on_signature_curve.into_affine(),
             ])
             .as_slice(),
             (vec![signature_proof.1 .0, signature_proof.1 .1]).as_slice(),
@@ -221,7 +228,7 @@ pub trait ChaumPedersenVerifier<
 
         let signature_point_as_bytes = E::signature_point_to_byte(&signature_proof.0);
         let message_point_as_bytes =
-            E::signature_point_to_byte(&message.hash_to_signature_curve::<E>());
+            E::signature_point_to_byte(&message_as_point_on_signature_curve);
         let public_key_in_signature_group_as_bytes =
             E::signature_point_to_byte(&self.into_public_key_in_signature_group().0);
 

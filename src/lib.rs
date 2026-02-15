@@ -80,13 +80,15 @@
 //!
 //!
 
-// #![feature(test)] //needed for cargo bench
+//needed for cargo bench but only works in nightly
+//#![feature(test)] 
+//pub mod bench;
+
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg_attr(feature = "std", doc = include_str!("../README.md"))]
 #[cfg(doctest)]
 pub struct ReadmeDoctests;
 
-// pub mod bench;
 
 extern crate ark_serialize;
 extern crate ark_serialize_derive;
