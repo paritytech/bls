@@ -1,3 +1,6 @@
 /target/
 **/*.rs.bk
+**/*.rs~
+.#*
 Cargo.lock
+nohup.out

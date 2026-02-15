@@ -1,3 +1,4 @@
+use alloc::vec;
 use alloc::vec::Vec;
 
 use ark_ec::{CurveGroup, PrimeGroup, VariableBaseMSM};
@@ -417,15 +418,15 @@ mod tests {
         let publickey: NuggetTriplePublicKey<EB, S> =
             TripleNuggetBLS::<EB, S>::into_nugget_triple_public_key(&keypair);
 
-        // #[cfg(feature = "benchmark")]
-        // let start = Instant::now();
-        // assert!(ChaumPedersenVerifier::<EB, S, Sha256>::verify_cp_signature_naive(
-        //     &publickey,
-        //     &message,
-        //     &good_sig,
-        // ));
-        // #[cfg(feature = "benchmark")]
-        // println!("[SW Test] verify_cp_signature_naive: {:?}", start.elapsed());
+        #[cfg(feature = "benchmark")]
+        let start = Instant::now();
+        assert!(ChaumPedersenVerifier::<EB, S, Sha256>::verify_cp_signature_naive(
+            &publickey,
+            &message,
+            &good_sig,
+        ));
+        #[cfg(feature = "benchmark")]
+        println!("[SW Test] verify_cp_signature_naive: {:?}", start.elapsed());
 
         #[cfg(feature = "benchmark")]
         let start = Instant::now();
@@ -438,15 +439,15 @@ mod tests {
             start.elapsed()
         );
 
-        // #[cfg(feature = "benchmark")]
-        // let start = Instant::now();
-        // assert!(ChaumPedersenVerifier::<EB, S, Sha256>::verify_cp_signature_with_msm_optimization(
-        //     &publickey,
-        //     &message,
-        //     &good_sig,
-        // ));
-        // #[cfg(feature = "benchmark")]
-        // println!("[SW Test] verify_cp_signature_with_msm_optimization: {:?}", start.elapsed());
+        #[cfg(feature = "benchmark")]
+        let start = Instant::now();
+        assert!(ChaumPedersenVerifier::<EB, S, Sha256>::verify_cp_signature_with_msm_optimization(
+            &publickey,
+            &message,
+            &good_sig,
+        ));
+        #[cfg(feature = "benchmark")]
+        println!("[SW Test] verify_cp_signature_with_msm_optimization: {:?}", start.elapsed());
 
         // Also test with G1 as the sister group (GLV path)
         let good_sig_g1_as_sister = <Keypair<EB> as NuggetBLS<

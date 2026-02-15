@@ -36,7 +36,7 @@ fn main() {
             .iter()
             .map(|k| k.public.clone())
             .collect::<Vec<_>>();
-        let pops = keypairs.iter_mut().map(|k|(ProofOfPossessionGenerator::<ZBLS, Sha256, PublicKey<ZBLS>, SchnorrPoP<ZBLS>>::generate_pok(k))).collect::<Vec<_>>();
+        let pops = keypairs.iter_mut().map(|k|ProofOfPossessionGenerator::<ZBLS, Sha256, PublicKey<ZBLS>, SchnorrPoP<ZBLS>>::generate_pok(k)).collect::<Vec<_>>();
 
         //first make sure public keys have valid pop
         let publickeys = publickeys

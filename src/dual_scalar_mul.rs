@@ -391,3 +391,251 @@ impl<C: BLSGLVConfig> DualScalarMultiplication for Projective<C> {
         res
     }
 }
+
+#[cfg(all(test, feature = "std"))]
+mod tests {
+    use super::*;
+    use ark_ec::short_weierstrass::Projective;
+    use ark_ec::PrimeGroup;
+    use ark_ff::UniformRand;
+    use rand::thread_rng;
+
+    // --- glv_sign_index tests ---
+
+    #[test]
+    fn test_glv_sign_index_all_positive() {
+        assert_eq!(glv_sign_index(true, true, true, true), 0);
+    }
+
+    #[test]
+    fn test_glv_sign_index_all_negative() {
+        assert_eq!(glv_sign_index(false, false, false, false), 15);
+    }
+
+    #[test]
+    fn test_glv_sign_index_individual_bits() {
+        // Only first scalar component negative
+        assert_eq!(glv_sign_index(false, true, true, true), 1);
+        // Only second scalar component negative
+        assert_eq!(glv_sign_index(true, false, true, true), 2);
+        // Only third scalar component negative
+        assert_eq!(glv_sign_index(true, true, false, true), 4);
+        // Only fourth scalar component negative
+        assert_eq!(glv_sign_index(true, true, true, false), 8);
+    }
+
+    #[test]
+    fn test_glv_sign_index_mixed() {
+        // First and third negative
+        assert_eq!(glv_sign_index(false, true, false, true), 5);
+        // Second and fourth negative
+        assert_eq!(glv_sign_index(true, false, true, false), 10);
+    }
+
+    // --- StrausPrecomputedTable tests ---
+
+    #[test]
+    fn test_precompute_sums_table_size() {
+        type G1 = Projective<ark_bls12_381::g1::Config>;
+        let gen = G1::generator();
+        let points = [gen, gen + gen];
+        let table = StrausPrecomputedTable::precompute_sums(&points);
+        // 2 points => 2^2 = 4 entries
+        assert_eq!(table.table.len(), 4);
+    }
+
+    #[test]
+    fn test_precompute_sums_identity_at_zero() {
+        type G1 = Projective<ark_bls12_381::g1::Config>;
+        let gen = G1::generator();
+        let points = [gen, gen + gen, gen + gen + gen];
+        let table = StrausPrecomputedTable::precompute_sums(&points);
+        // 3 points => 2^3 = 8 entries
+        assert_eq!(table.table.len(), 8);
+        // Index 0 should be identity
+        assert!(table.table[0].is_zero());
+    }
+
+    #[test]
+    fn test_precompute_sums_single_point() {
+        type G1 = Projective<ark_bls12_381::g1::Config>;
+        let gen = G1::generator();
+        let table = StrausPrecomputedTable::precompute_sums(&[gen]);
+        // 1 point => 2^1 = 2 entries: [0, gen]
+        assert_eq!(table.table.len(), 2);
+        assert!(table.table[0].is_zero());
+        assert_eq!(table.table[1], gen);
+    }
+
+    #[test]
+    fn test_precompute_sums_subset_correctness() {
+        type G1 = Projective<ark_bls12_381::g1::Config>;
+        let rng = &mut thread_rng();
+        let p = G1::rand(rng);
+        let q = G1::rand(rng);
+        let table = StrausPrecomputedTable::precompute_sums(&[p, q]);
+        // table[0] = 0, table[1] = p, table[2] = q, table[3] = p+q
+        assert!(table.table[0].is_zero());
+        assert_eq!(table.table[1], p);
+        assert_eq!(table.table[2], q);
+        assert_eq!(table.table[3], p + q);
+    }
+
+    #[test]
+    fn test_straus_precomputed_table_new_has_256_entries() {
+        type G1 = Projective<ark_bls12_381::g1::Config>;
+        let rng = &mut thread_rng();
+        let gen = G1::generator();
+        let pk = G1::rand(rng);
+        let table = StrausPrecomputedTable::new(gen, pk);
+        assert_eq!(table.table.len(), 256);
+    }
+
+    #[test]
+    fn test_straus_precomputed_table_new_first_slice_has_identity() {
+        type G1 = Projective<ark_bls12_381::g1::Config>;
+        let rng = &mut thread_rng();
+        let gen = G1::generator();
+        let pk = G1::rand(rng);
+        let table = StrausPrecomputedTable::new(gen, pk);
+        // First 16-element slice (sign_idx=0, all positive) should have identity at index 0
+        assert!(table.table[0].is_zero());
+    }
+
+    // --- NonGLVCurve dual_scalar_mul tests ---
+
+    #[test]
+    fn test_non_glv_dual_scalar_mul_zero_scalars() {
+        type SW = ark_sw_by_bls12_381::SWProjective;
+        let rng = &mut thread_rng();
+        let p = SW::rand(rng);
+        let q = SW::rand(rng);
+        let zero = <SW as PrimeGroup>::ScalarField::from(0u64);
+
+        let result = SW::dual_scalar_mul(&zero, &zero, &p, &q, None);
+        assert!(result.is_zero());
+    }
+
+    #[test]
+    fn test_non_glv_dual_scalar_mul_single_scalar() {
+        type SW = ark_sw_by_bls12_381::SWProjective;
+        let rng = &mut thread_rng();
+        let p = SW::rand(rng);
+        let q = SW::rand(rng);
+        let a = <SW as PrimeGroup>::ScalarField::rand(rng);
+        let zero = <SW as PrimeGroup>::ScalarField::from(0u64);
+
+        // a*P + 0*Q == a*P
+        let result = SW::dual_scalar_mul(&a, &zero, &p, &q, None);
+        assert_eq!(result, p * a);
+
+        // 0*P + a*Q == a*Q
+        let result = SW::dual_scalar_mul(&zero, &a, &p, &q, None);
+        assert_eq!(result, q * a);
+    }
+
+    #[test]
+    fn test_non_glv_dual_scalar_mul_correctness() {
+        type SW = ark_sw_by_bls12_381::SWProjective;
+        let rng = &mut thread_rng();
+        let p = SW::rand(rng);
+        let q = SW::rand(rng);
+        let a = <SW as PrimeGroup>::ScalarField::rand(rng);
+        let b = <SW as PrimeGroup>::ScalarField::rand(rng);
+
+        let result = SW::dual_scalar_mul(&a, &b, &p, &q, None);
+        let expected = p * a + q * b;
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_non_glv_dual_scalar_mul_with_precomputed_table() {
+        type SW = ark_sw_by_bls12_381::SWProjective;
+        let rng = &mut thread_rng();
+        let p = SW::rand(rng);
+        let q = SW::rand(rng);
+        let a = <SW as PrimeGroup>::ScalarField::rand(rng);
+        let b = <SW as PrimeGroup>::ScalarField::rand(rng);
+
+        // With a 1-element table (P+Q precomputed)
+        let p_plus_q = p + q;
+        let result = SW::dual_scalar_mul(&a, &b, &p, &q, Some(&[p_plus_q]));
+        let expected = p * a + q * b;
+        assert_eq!(result, expected);
+    }
+
+    // --- GLV curve dual_scalar_mul tests ---
+
+    #[test]
+    fn test_glv_dual_scalar_mul_correctness_no_table() {
+        type G1 = Projective<ark_bls12_381::g1::Config>;
+        let rng = &mut thread_rng();
+        let p = G1::rand(rng);
+        let q = G1::rand(rng);
+        let a = <G1 as PrimeGroup>::ScalarField::rand(rng);
+        let b = <G1 as PrimeGroup>::ScalarField::rand(rng);
+
+        let result = G1::dual_scalar_mul(&a, &b, &p, &q, None);
+        let expected = p * a + q * b;
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_glv_dual_scalar_mul_with_precomputed_256_table() {
+        type G1 = Projective<ark_bls12_381::g1::Config>;
+        let rng = &mut thread_rng();
+        let p = G1::generator();
+        let q = G1::rand(rng);
+        let a = <G1 as PrimeGroup>::ScalarField::rand(rng);
+        let b = <G1 as PrimeGroup>::ScalarField::rand(rng);
+
+        let table = StrausPrecomputedTable::new(p, q);
+        assert_eq!(table.table.len(), 256);
+
+        let result = G1::dual_scalar_mul(&a, &b, &p, &q, Some(&table.table));
+        let expected = p * a + q * b;
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_glv_dual_scalar_mul_precomputed_matches_runtime() {
+        type G1 = Projective<ark_bls12_381::g1::Config>;
+        let rng = &mut thread_rng();
+        let p = G1::generator();
+        let q = G1::rand(rng);
+        let a = <G1 as PrimeGroup>::ScalarField::rand(rng);
+        let b = <G1 as PrimeGroup>::ScalarField::rand(rng);
+
+        let table = StrausPrecomputedTable::new(p, q);
+
+        let result_with_table = G1::dual_scalar_mul(&a, &b, &p, &q, Some(&table.table));
+        let result_without_table = G1::dual_scalar_mul(&a, &b, &p, &q, None);
+        assert_eq!(result_with_table, result_without_table);
+    }
+
+    #[test]
+    fn test_glv_dual_scalar_mul_zero_scalars() {
+        type G1 = Projective<ark_bls12_381::g1::Config>;
+        let rng = &mut thread_rng();
+        let p = G1::rand(rng);
+        let q = G1::rand(rng);
+        let zero = <G1 as PrimeGroup>::ScalarField::from(0u64);
+
+        let result = G1::dual_scalar_mul(&zero, &zero, &p, &q, None);
+        assert!(result.is_zero());
+    }
+
+    #[test]
+    fn test_glv_dual_scalar_mul_bls12_377() {
+        type G1 = Projective<ark_bls12_377::g1::Config>;
+        let rng = &mut thread_rng();
+        let p = G1::rand(rng);
+        let q = G1::rand(rng);
+        let a = <G1 as PrimeGroup>::ScalarField::rand(rng);
+        let b = <G1 as PrimeGroup>::ScalarField::rand(rng);
+
+        let result = G1::dual_scalar_mul(&a, &b, &p, &q, None);
+        let expected = p * a + q * b;
+        assert_eq!(result, expected);
+    }
+}

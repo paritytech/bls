@@ -206,6 +206,7 @@ where
 
 #[cfg(all(test, feature = "std"))]
 mod tests {
+    use core::marker::PhantomData;
     use rand::thread_rng;
 
     use super::*;
@@ -218,7 +219,8 @@ mod tests {
     use ark_ed_by_bls12_381;
     use ark_sw_by_bls12_381;
 
-    use crate::{EngineBLS, Message, TinyBLS};
+    use crate::nugget::NuggetSignedMessage;
+    use crate::{EngineBLS, Message, Signed, TinyBLS};
 
     //TODO test for triple public key serialization
     fn test_single_bls_message_double_signature_triple_publickey_scheme<
@@ -273,18 +275,6 @@ mod tests {
         );
     }
 
-    // We don't have a curve for bls12-377 yet
-    // #[test]
-    // fn test_single_bls_message_double_signature_triple_publickey_scheme_for_bls12_377() {
-    //     test_single_bls_message_double_signature_triple_publickey_scheme::<
-    //         TinyBLS<Bls12_377, ark_bls12_377::Config>,
-    //         twisted_edwards::Projective<ark_ed_by_bls12_381::EdwardsConfig>,
-    //         Bls12_377,
-    //         ark_bls12_377::Config,
-
-    //     >();
-    // }
-
     impl SerializableToBytes for ark_ed_by_bls12_381::EdwardsProjective {
         const SERIALIZED_BYTES_SIZE: usize = 40;
     }
@@ -318,37 +308,39 @@ mod tests {
         >();
     }
 
-    //NuggetSignedMessage<E, <E as EngineBLS>::SignatureGroup, NuggetDoublePublicKey<E>>;
-    // fn triple_nugget_public_key_serialization_test<
-    //     EB: EngineBLS<Engine = E>,
-    //     E: PairingEngine,
-    //     S: CurveGroup + PrimeGroup<ScalarField = EB::Scalar> + SerializableToBytes,
-    //     P: Bls12Config,
-    // >(
-    //     x: NuggetSignedMessage<EB, S, NuggetTriplePublicKey<EB, S>>,
-    // ) -> NuggetSignedMessage<EB, S, NuggetTriplePublicKey<EB, S>>
-    // where
-    //     <P as Bls12Config>::G2Config: WBConfig,
-    //     WBMap<<P as Bls12Config>::G2Config>: MapToCurve<<E as PairingEngine>::G2>,
-    //     EB::SignatureGroup: SerializableToBytes,
-    // {
-    //     let NuggetSignedMessage::<EB, S, NuggetTriplePublicKey<EB, S>> {
-    //         message,
-    //         publickey,
-    //         signature,
-    //         ..
-    //     } = x;
+    fn triple_nugget_public_key_serialization_test<
+        EB: EngineBLS<Engine = E>,
+        E: PairingEngine,
+        S: CurveGroup
+            + PrimeGroup<ScalarField = EB::Scalar>
+            + SerializableToBytes
+            + DualScalarMultiplication,
+        P: Bls12Config,
+    >(
+        x: NuggetSignedMessage<EB, S, NuggetTriplePublicKey<EB, S>>,
+    ) -> NuggetSignedMessage<EB, S, NuggetTriplePublicKey<EB, S>>
+    where
+        <P as Bls12Config>::G2Config: WBConfig,
+        WBMap<<P as Bls12Config>::G2Config>: MapToCurve<<E as PairingEngine>::G2>,
+        EB::SignatureGroup: SerializableToBytes + DualScalarMultiplication,
+    {
+        let NuggetSignedMessage::<EB, S, NuggetTriplePublicKey<EB, S>> {
+            message,
+            publickey,
+            signature,
+            ..
+        } = x;
 
-    //     let publickey = NuggetTriplePublicKey::<EB, S>::from_bytes(&publickey.to_bytes()).unwrap();
-    //     let signature = NuggetSignature::<EB>::from_bytes(&signature.to_bytes()).unwrap();
+        let publickey = NuggetTriplePublicKey::<EB, S>::from_bytes(&publickey.to_bytes()).unwrap();
+        let signature = NuggetSignature::<EB>::from_bytes(&signature.to_bytes()).unwrap();
 
-    //     NuggetSignedMessage::<EB, S, NuggetTriplePublicKey<EB, S>> {
-    //         message,
-    //         publickey,
-    //         signature,
-    //         _phantom: PhantomData,
-    //     }
-    // }
+        NuggetSignedMessage::<EB, S, NuggetTriplePublicKey<EB, S>> {
+            message,
+            publickey,
+            signature,
+            _phantom: PhantomData,
+        }
+    }
 
     #[test]
     fn test_serialize_triple_public_key_for_bls12_381_sw() {
@@ -369,47 +361,51 @@ mod tests {
             "deserialized public key in the sister group should be the same as the original"
         );
 
-        // let deserialized_public_key = NuggetTriplePublicKey::<EB, S>::from_bytes(&TripleNuggetBLS::<EB, S>::into_nugget_triple_public_key(&keypair).to_bytes()).unwrap();
+        let deserialized_public_key = NuggetTriplePublicKey::<EB, S>::from_bytes(&TripleNuggetBLS::<EB, S>::into_nugget_triple_public_key(&keypair).to_bytes()).unwrap();
 
-        // assert!(
-        //     deserialized_public_key.0 == TripleNuggetBLS::<EB, S>::into_nugget_triple_public_key(&keypair).0,
-        //     "deserialized public key should be the same as the original"
-        // );
+        assert!(
+            deserialized_public_key.0 == TripleNuggetBLS::<EB, S>::into_nugget_triple_public_key(&keypair).0,
+            "deserialized public key should be the same as the original"
+        );
     }
 
-    // #[test]
-    // fn test_triple_public_key_for_bls12_381_sw() {
-    //     type EB = TinyBLS<Bls12_381, ark_bls12_381::Config>;
-    //     type S = sw_by_bls12_381::SWProjective;
+    #[test]
+    fn test_triple_public_key_for_bls12_381_sw() {
+        type EB = TinyBLS<Bls12_381, ark_bls12_381::Config>;
+        type S = ark_sw_by_bls12_381::SWProjective;
 
-    //     let mut keypair = Keypair::<EB>::generate(thread_rng());
-    //     let message = Message::new(b"ctx", b"test message");
-    //     let good_sig0 = <Keypair<_> as NuggetBLS<_, S>::sign(
-    //         &mut keypair,
-    //         &message,
-    //     );
+        let mut keypair = Keypair::<EB>::generate(thread_rng());
+        let message = Message::new(b"ctx", b"test message");
+        let good_sig0 = <Keypair<_> as NuggetBLS<_, S>>::sign(
+            &mut keypair,
+            &message,
+        );
 
-    //     let signed_message = DoubleSignedMessage {
-    //         message: message,
-    //         publickey: keypair.into_nugget_double_public_key(),
-    //         signature: good_sig0,
-    //         _phantom: PhantomData,
-    //     };
+        let publickey =
+            TripleNuggetBLS::<EB, S>::into_nugget_triple_public_key(&keypair);
 
-    //     assert!(
-    //         signed_message.verify(),
-    //         "valid double signed message should verify"
-    //     );
+        let signed_message = NuggetSignedMessage {
+            message: message,
+            publickey,
+            signature: good_sig0,
+            _phantom: PhantomData,
+        };
 
-    //     let deserialized_signed_message = double_nugget_public_key_serialization_test::<
-    //         TinyBLS<Bls12_381, ark_bls12_381::Config>,
-    //         Bls12_381,
-    //         ark_bls12_381::Config,
-    //     >(signed_message);
+        assert!(
+            signed_message.verify(),
+            "valid double signed message should verify"
+        );
 
-    //     assert!(
-    //         deserialized_signed_message.verify(),
-    //         "deserialized valid double signed message should verify"
-    //     );
-    // }
+        let deserialized_signed_message = triple_nugget_public_key_serialization_test::<
+            EB,
+            Bls12_381,
+            S,
+            ark_bls12_381::Config,
+        >(signed_message);
+
+        assert!(
+            deserialized_signed_message.verify(),
+            "deserialized valid double signed message should verify"
+        );
+    }
 }
