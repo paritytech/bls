@@ -12,9 +12,8 @@ edition = "2018"
 [workspace]
 members = [
     ".",
-    "experimental",
-    "experimental/ed_by_bls12_381",
-    "experimental/sw_by_bls12_381",
+    "experimental_curves/ed_by_bls12_381",
+    "experimental_curves/sw_by_bls12_381",
 ]
 
 [workspace.package]
@@ -50,8 +49,8 @@ digest = { version = "0.10", default-features = false }
 ark-bls12-381 = { workspace = true }
 ark-bls12-377 = { workspace = true }
 
-ark-ed-by-bls12-381 = {path = "./experimental/ed_by_bls12_381"}
-ark-sw-by-bls12-381 = {path = "./experimental/sw_by_bls12_381"}
+ark-ed-by-bls12-381 = {path = "./experimental_curves/ed_by_bls12_381"}
+ark-sw-by-bls12-381 = {path = "./experimental_curves/sw_by_bls12_381"}
 
 zeroize = { version = "1.0", default-features = false, features = [ "zeroize_derive" ] }
 
@@ -62,3 +61,14 @@ hex-literal = "0.3.4"
 default = ["std"]
 std = ["rand/std"]
 benchmark = ["std"]
+experimental = ["std"]
+
+[[example]]
+name = "aggregated"
+path = "examples/experimental/aggregated.rs"
+required-features = ["experimental"]
+
+[[example]]
+name = "aggregated_with_pop"
+path = "examples/experimental/aggregated_with_pop.rs"
+required-features = ["experimental"]

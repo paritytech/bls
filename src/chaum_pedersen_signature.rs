@@ -12,10 +12,10 @@ use std::time::Instant;
 use crate::dual_scalar_mul::DualScalarMultiplication;
 use crate::engine::EngineBLS;
 use crate::nugget::{NuggetBLS, NuggetPublicKey, NuggetSignature};
-use crate::schnorr_pop::SchnorrProof;
 use crate::serialize::SerializableToBytes;
 use crate::{Message, SecretKeyVT};
 
+pub type DLEQProof<E> = (<E as EngineBLS>::Scalar, <E as EngineBLS>::Scalar);
 pub type ChaumPedersenSignature<E> = NuggetSignature<E>;
 
 /// ProofOfPossion trait which should be implemented by secret
@@ -37,7 +37,7 @@ where
         &mut self,
         message: &Message,
         bls_signature: E::SignatureGroup,
-    ) -> SchnorrProof<E>;
+    ) -> DLEQProof<E>;
 }
 
 /// This should be implemented by public key
@@ -275,7 +275,7 @@ where
         &mut self,
         message: &Message,
         bls_signature: E::SignatureGroup,
-    ) -> SchnorrProof<E> {
+    ) -> DLEQProof<E> {
         let signature_point = bls_signature;
         let message_point = message.hash_to_signature_curve::<E>();
 

@@ -77,7 +77,7 @@ Assuming you already have proofs-of-possession, then you'll want to do aggregati
 The library offers method for generating and verifying proof of positions both based on BLS and [Schnorr Signature](https://en.wikipedia.org/wiki/Schnorr_signature) which is faster to verify than when using BLS signature itself as proof of position. The following example demonstrate how to generate and verify proof of positions and then using `SignatureAggregatorAssumingPoP` to batch and verify multiple BLS signatures.
 
 ```rust
-use w3f_bls::{Keypair,PublicKey,ZBLS,Message,Signed, ProofOfPossessionGenerator, ProofOfPossession, schnorr_pop::{SchnorrPoP}, multi_pop_aggregator::MultiMessageSignatureAggregatorAssumingPoP};
+use w3f_bls::{Keypair,PublicKey,ZBLS,Message,Signed, ProofOfPossessionGenerator, ProofOfPossession, experimental::schnorr_pop::{SchnorrPoP}, multi_pop_aggregator::MultiMessageSignatureAggregatorAssumingPoP};
 use sha2::Sha256;
 
 let mut keypairs = [Keypair::<ZBLS>::generate(::rand::thread_rng()), Keypair::<ZBLS>::generate(::rand::thread_rng())];

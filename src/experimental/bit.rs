@@ -8,9 +8,9 @@ use core::iter::once;
 
 use ark_ff::{AdditiveGroup, Zero};
 
-use w3f_bls::single::SignedMessage;
-use w3f_bls::verifiers::verify_with_distinct_messages;
-use w3f_bls::*;
+use crate::single::SignedMessage;
+use crate::verifiers::verify_with_distinct_messages;
+use crate::*;
 
 // Slice equality with bytewise equality hack because
 // std does not expose `slice::BytewiseEquality`
@@ -660,7 +660,7 @@ mod tests {
         assert!(bitsig1.merge(&bitsig2).is_err());
 
         let mut multimsg =
-            w3f_bls::multi_pop_aggregator::MultiMessageSignatureAggregatorAssumingPoP::<ZBLS>::new(
+            crate::multi_pop_aggregator::MultiMessageSignatureAggregatorAssumingPoP::<ZBLS>::new(
             );
         multimsg.aggregate(&bitsig1);
         multimsg.aggregate(&bitsig2);

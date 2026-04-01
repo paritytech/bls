@@ -1,9 +1,9 @@
+use w3f_bls::experimental::distinct::DistinctMessages;
 use w3f_bls::{Keypair, Message, Signed, ZBLS};
-use w3f_bls_experimental::distinct::DistinctMessages;
 
 /// Run using
 /// ```sh
-/// cargo run -p w3f-bls-experimental --example aggregated
+/// cargo run --features experimental --example aggregated
 /// ```
 fn main() {
     let mut keypairs = [

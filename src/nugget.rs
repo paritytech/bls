@@ -23,7 +23,7 @@ use sha2::Sha256;
 use crate::broken_derives;
 use crate::chaum_pedersen_signature::{ChaumPedersenSigner, ChaumPedersenVerifier};
 use crate::dual_scalar_mul::DualScalarMultiplication;
-use crate::schnorr_pop::SchnorrProof;
+use crate::chaum_pedersen_signature::DLEQProof;
 use crate::serialize::SerializableToBytes;
 use crate::single::{Keypair, KeypairVT, PublicKey, SecretKeyVT, Signature};
 use crate::{EngineBLS, Message, Signed};
@@ -127,7 +127,7 @@ where
 
 /// Detached BLS Signature containing DLEQ
 #[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
-pub struct NuggetSignature<E: EngineBLS>(pub E::SignatureGroup, pub SchnorrProof<E>);
+pub struct NuggetSignature<E: EngineBLS>(pub E::SignatureGroup, pub DLEQProof<E>);
 
 impl<E: EngineBLS> NuggetSignature<E> {
     //const DESCRIPTION : &'static str = "A BLS signature";
