@@ -95,7 +95,7 @@ impl<E: EngineBLS> Delinearized<E> {
         Delinearized::new(t)
     }
     pub fn new_batched_rng<R: Rng>(mut rng: R) -> Delinearized<E> {
-        let r = rng.gen::<[u8; 32]>();
+        let r = rng.r#gen::<[u8; 32]>();
         Delinearized::new_keyed(&r[..])
     }
 

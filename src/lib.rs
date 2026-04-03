@@ -115,12 +115,9 @@ pub mod nugget;
 pub mod nugget_pop;
 pub mod serialize;
 pub mod single;
-pub mod triple_nugget;
 pub mod verifiers;
 
-#[cfg(feature = "std")]
 pub mod multi_pop_aggregator;
-#[cfg(feature = "std")]
 pub mod single_pop_aggregator;
 
 #[cfg(feature = "experimental")]

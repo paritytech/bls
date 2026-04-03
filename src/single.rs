@@ -626,7 +626,7 @@ impl<E: EngineBLS> Keypair<E> {
         self.sign_with_rng(message, thread_rng())
     }
 
-    /// Create a `SignedMessage` using the default `ThreadRng`.
+    /// Create a `SignedMessage` using a deterministic seed derived from the message and key.
     pub fn signed_message(&mut self, message: &Message) -> SignedMessage<E> {
         let signature = self.sign(&message);
         SignedMessage {

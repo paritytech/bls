@@ -35,7 +35,8 @@
 // https://twitter.com/btcVeg/status/1085490561082183681
 
 use core::borrow::Borrow; // BorrowMut
-use std::collections::HashMap;
+// We use BTreeMap instead of BTreeMap for no_std compatibility.
+use alloc::collections::BTreeMap;
 
 use ark_ff::Zero;
 
@@ -83,14 +84,14 @@ use single::PublicKey;
 
 #[derive(Clone)]
 pub struct MultiMessageSignatureAggregatorAssumingPoP<E: EngineBLS> {
-    messages_n_publickeys: HashMap<Message, PublicKey<E>>,
+    messages_n_publickeys: BTreeMap<Message, PublicKey<E>>,
     signature: Signature<E>,
 }
 
 impl<E: EngineBLS> MultiMessageSignatureAggregatorAssumingPoP<E> {
     pub fn new() -> MultiMessageSignatureAggregatorAssumingPoP<E> {
         MultiMessageSignatureAggregatorAssumingPoP {
-            messages_n_publickeys: HashMap::new(),
+            messages_n_publickeys: BTreeMap::new(),
             signature: Signature(E::SignatureGroup::zero()),
         }
     }
@@ -133,7 +134,7 @@ impl<'a, E: EngineBLS> Signed for &'a MultiMessageSignatureAggregatorAssumingPoP
 
     type M = &'a Message;
     type PKG = &'a PublicKey<Self::E>;
-    type PKnM = ::std::collections::hash_map::Iter<'a, Message, PublicKey<E>>;
+    type PKnM = alloc::collections::btree_map::Iter<'a, Message, PublicKey<E>>;
 
     fn messages_and_publickeys(self) -> Self::PKnM {
         self.messages_n_publickeys.iter()
@@ -154,13 +155,14 @@ impl<'a, E: EngineBLS> Signed for &'a MultiMessageSignatureAggregatorAssumingPoP
     }
 }
 
-#[cfg(all(test, feature = "std"))]
+#[cfg(test)]
 mod tests {
 
     use crate::Keypair;
     use crate::Message;
     use crate::UsualBLS;
-    use rand::thread_rng;
+    use rand::SeedableRng;
+    use rand::rngs::StdRng;
 
     use ark_bls12_381::Bls12_381;
 
@@ -171,7 +173,7 @@ mod tests {
         let good = Message::new(b"ctx", b"test message");
 
         let mut keypair =
-            Keypair::<UsualBLS<Bls12_381, ark_bls12_381::Config>>::generate(thread_rng());
+            Keypair::<UsualBLS<Bls12_381, ark_bls12_381::Config>>::generate(StdRng::from_seed([0u8; 32]));
         let good_sig0 = keypair.sign(&good);
         assert!(good_sig0.verify(&good, &keypair.public));
     }
@@ -181,11 +183,11 @@ mod tests {
         let good = Message::new(b"ctx", b"test message");
 
         let mut keypair0 =
-            Keypair::<UsualBLS<Bls12_381, ark_bls12_381::Config>>::generate(thread_rng());
+            Keypair::<UsualBLS<Bls12_381, ark_bls12_381::Config>>::generate(StdRng::from_seed([0u8; 32]));
         let good_sig0 = keypair0.sign(&good);
 
         let mut keypair1 =
-            Keypair::<UsualBLS<Bls12_381, ark_bls12_381::Config>>::generate(thread_rng());
+            Keypair::<UsualBLS<Bls12_381, ark_bls12_381::Config>>::generate(StdRng::from_seed([1u8; 32]));
         let good_sig1 = keypair1.sign(&good);
 
         let mut aggregated_sigs = MultiMessageSignatureAggregatorAssumingPoP::<
@@ -209,7 +211,7 @@ mod tests {
         let good1 = Message::new(b"ctx", b"Space over Tab");
 
         let mut keypair =
-            Keypair::<UsualBLS<Bls12_381, ark_bls12_381::Config>>::generate(thread_rng());
+            Keypair::<UsualBLS<Bls12_381, ark_bls12_381::Config>>::generate(StdRng::from_seed([0u8; 32]));
 
         let good_sig0 = keypair.sign(&good0);
         let good_sig1 = keypair.sign(&good1);
@@ -235,11 +237,11 @@ mod tests {
         let good1 = Message::new(b"ctx", b"there was a flying spaghetti monster");
 
         let mut keypair0 =
-            Keypair::<UsualBLS<Bls12_381, ark_bls12_381::Config>>::generate(thread_rng());
+            Keypair::<UsualBLS<Bls12_381, ark_bls12_381::Config>>::generate(StdRng::from_seed([0u8; 32]));
         let good_sig0 = keypair0.sign(&good0);
 
         let mut keypair1 =
-            Keypair::<UsualBLS<Bls12_381, ark_bls12_381::Config>>::generate(thread_rng());
+            Keypair::<UsualBLS<Bls12_381, ark_bls12_381::Config>>::generate(StdRng::from_seed([1u8; 32]));
         let good_sig1 = keypair1.sign(&good1);
 
         let mut aggregated_sigs = MultiMessageSignatureAggregatorAssumingPoP::<
@@ -262,7 +264,7 @@ mod tests {
         let good = Message::new(b"ctx", b"test message");
 
         let mut keypair =
-            Keypair::<UsualBLS<Bls12_381, ark_bls12_381::Config>>::generate(thread_rng());
+            Keypair::<UsualBLS<Bls12_381, ark_bls12_381::Config>>::generate(StdRng::from_seed([0u8; 32]));
         let good_sig = keypair.sign(&good);
 
         let mut aggregated_sigs = MultiMessageSignatureAggregatorAssumingPoP::<
@@ -286,11 +288,11 @@ mod tests {
         let bad1 = Message::new(b"ctx", b"Tab over Space");
 
         let mut keypair0 =
-            Keypair::<UsualBLS<Bls12_381, ark_bls12_381::Config>>::generate(thread_rng());
+            Keypair::<UsualBLS<Bls12_381, ark_bls12_381::Config>>::generate(StdRng::from_seed([0u8; 32]));
         let good_sig0 = keypair0.sign(&good0);
 
         let mut keypair1 =
-            Keypair::<UsualBLS<Bls12_381, ark_bls12_381::Config>>::generate(thread_rng());
+            Keypair::<UsualBLS<Bls12_381, ark_bls12_381::Config>>::generate(StdRng::from_seed([1u8; 32]));
         let bad_sig1 = keypair1.sign(&bad1);
 
         let mut aggregated_sigs = MultiMessageSignatureAggregatorAssumingPoP::<

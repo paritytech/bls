@@ -27,13 +27,14 @@ Aggregated and blind signatures are almost the only reasons anyone would conside
 
 As a rule, aggregation that requires distinct messages still requires one miller loop step per message, so aggregate signatures have rather slow verification times.  You can nevertheless achieve quite small signature sizes like
 
-```rust,ignore
+```rust
 use w3f_bls::{Keypair, Message, Signed, ZBLS};
-use w3f_bls_experimental::distinct::DistinctMessages;
+use w3f_bls::experimental::distinct::DistinctMessages;
+use rand::{SeedableRng, rngs::StdRng};
 
 let mut keypairs = [
-	Keypair::<ZBLS>::generate(::rand::thread_rng()),
-	Keypair::<ZBLS>::generate(::rand::thread_rng()),
+	Keypair::<ZBLS>::generate(StdRng::from_seed([0u8; 32])),
+	Keypair::<ZBLS>::generate(StdRng::from_seed([1u8; 32])),
 ];
 let msgs = [
 	"The ships",

@@ -6,8 +6,8 @@ homepage = "https://github.com/w3f/bls"
 license = "MIT/Apache-2.0"
 name = "w3f-bls"
 repository = "https://github.com/w3f/bls"
-version = "0.1.9"
-edition = "2018"
+version = "0.2.0"
+edition = "2024"
 
 [workspace]
 members = [
@@ -17,7 +17,7 @@ members = [
 ]
 
 [workspace.package]
-edition = "2018"
+edition = "2024"
 repository = "https://github.com/w3f/bls"
 
 [workspace.dependencies]
@@ -49,13 +49,12 @@ digest = { version = "0.10", default-features = false }
 ark-bls12-381 = { workspace = true }
 ark-bls12-377 = { workspace = true }
 
-ark-ed-by-bls12-381 = {path = "./experimental_curves/ed_by_bls12_381"}
-ark-sw-by-bls12-381 = {path = "./experimental_curves/sw_by_bls12_381"}
-
 zeroize = { version = "1.0", default-features = false, features = [ "zeroize_derive" ] }
 
 [dev-dependencies]
 hex-literal = "0.3.4"
+ark-ed-by-bls12-381 = {path = "./experimental_curves/ed_by_bls12_381"}
+ark-sw-by-bls12-381 = {path = "./experimental_curves/sw_by_bls12_381"}
 
 [features]
 default = ["std"]

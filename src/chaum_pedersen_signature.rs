@@ -123,7 +123,7 @@ pub trait ChaumPedersenVerifier<
 
         let signature_as_scalars_of_sister_group: (S::ScalarField, S::ScalarField) =
             (signature_proof.1 .0, signature_proof.1 .1);
-        let gen = <S as PrimeGroup>::generator();
+        let generator = <S as PrimeGroup>::generator();
         let pubkey = self.into_public_key_in_sister_group().0;
 
         let message_as_point_on_signature_curve = message.hash_to_signature_curve::<E>();
@@ -136,7 +136,7 @@ pub trait ChaumPedersenVerifier<
         let A_check_point = S::dual_scalar_mul(
             &signature_as_scalars_of_sister_group.1,
             &signature_as_scalars_of_sister_group.0,
-            &gen,
+            &generator,
             &pubkey,
             Some(self.straus_sister_group_precomputed_points()),
         );
@@ -400,11 +400,12 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "experimental")]
     fn test_chaum_pedersen_verification_weierstrass_sister_curve() {
         #[cfg(feature = "benchmark")]
         use std::time::Instant;
 
-        use crate::triple_nugget::{NuggetTriplePublicKey, TripleNuggetBLS};
+        use crate::experimental::triple_nugget::{NuggetTriplePublicKey, TripleNuggetBLS};
         use ark_sw_by_bls12_381::SWProjective;
 
         type EB = TinyBLS381;

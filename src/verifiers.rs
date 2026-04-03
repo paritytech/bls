@@ -4,20 +4,17 @@
 //!
 
 use core::borrow::Borrow;
-#[cfg(feature = "std")]
-use std::collections::HashMap;
 
-#[cfg(feature = "std")]
+// We use BTreeMap instead of HashMap for no_std compatibility.
+use alloc::collections::BTreeMap;
 use ark_ec::AffineRepr;
-#[cfg(feature = "std")]
 use ark_ff::field_hashers::{DefaultFieldHasher, HashToField};
-#[cfg(feature = "std")]
 use ark_serialize::CanonicalSerialize;
-#[cfg(feature = "std")]
 use digest::FixedOutputReset;
 
 use ark_ec::CurveGroup;
 
+use alloc::vec;
 use alloc::vec::Vec;
 
 use super::*;
@@ -95,13 +92,12 @@ fn collect_messages_and_publickeys<S: Signed>(
 /// tuples of slices satisfy `ops::IndexMut`.
 // TODO:  Impl PartialEq, Eq, Hash for pairing::EncodedPoint
 // to avoid  struct H(E::PublicKeyGroup::Affine::Uncompressed);
-#[cfg(feature = "std")]
 fn merge_by_signer<E: EngineBLS>(
     affine_publickeys: Vec<PublicKeyAffine<E>>,
     messages: Vec<SignatureProjective<E>>,
 ) -> (Vec<PublicKeyAffine<E>>, Vec<SignatureProjective<E>>) {
     type PkMsg<E> = (PublicKeyAffine<E>, SignatureProjective<E>);
-    let mut pks_n_ms: HashMap<Vec<u8>, PkMsg<E>> = HashMap::with_capacity(affine_publickeys.len());
+    let mut pks_n_ms: BTreeMap<Vec<u8>, PkMsg<E>> = BTreeMap::new();
     for (pk, m) in affine_publickeys.into_iter().zip(messages) {
         let mut pk_bytes = vec![0; pk.uncompressed_size()];
         pk.serialize_uncompressed(&mut pk_bytes[..]).unwrap();
@@ -186,7 +182,6 @@ pub fn verify_simple<S: Signed>(s: S) -> bool {
 /// We optionally batch normalize the public keys in the event that
 /// they are provided by algerbaic operaations, but this sounds
 /// unlikely given our requirement that messages be distinct.
-#[cfg(feature = "std")]
 pub fn verify_with_distinct_messages<S: Signed>(signed: S, normalize_public_keys: bool) -> bool {
     // We first hash the messages to the signature curve and
     // normalize the public keys to operate on them as bytes.
@@ -208,7 +203,6 @@ pub fn verify_with_distinct_messages<S: Signed>(signed: S, normalize_public_keys
 /// Similar to `verify_with_distinct_messages` but adds a randomized
 /// auxiliary public key component to each message point and the
 /// signature, using deterministic randomness derived from the inputs.
-#[cfg(feature = "std")]
 pub fn verify_using_aggregated_auxiliary_public_keys<
     E: EngineBLS,
     H: FixedOutputReset + Default + Clone,
@@ -367,3 +361,44 @@ fn verify_with_gaussian_elimination<S: Signed>(s: S) -> bool {
 }
 
 */
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Keypair, Message, UsualBLS};
+    use ark_bls12_381::Bls12_381;
+    use rand::rngs::StdRng;
+    use rand::SeedableRng;
+
+    type EB = UsualBLS<Bls12_381, ark_bls12_381::Config>;
+
+    #[test]
+    fn verify_simple_single_signature() {
+        let good = Message::new(b"ctx", b"test message");
+        let mut keypair = Keypair::<EB>::generate(StdRng::from_seed([0u8; 32]));
+        let signed = keypair.signed_message(&good);
+        assert!(verify_simple(&signed));
+    }
+
+    #[test]
+    fn verify_simple_rejects_wrong_message() {
+        let good = Message::new(b"ctx", b"test message");
+        let bad = Message::new(b"ctx", b"wrong message");
+        let mut keypair = Keypair::<EB>::generate(StdRng::from_seed([0u8; 32]));
+        let sig = keypair.sign(&good);
+        let wrong_signed = single::SignedMessage {
+            message: bad,
+            publickey: keypair.public,
+            signature: sig,
+        };
+        assert!(!verify_simple(&wrong_signed));
+    }
+
+    #[test]
+    fn verify_unoptimized_single_signature() {
+        let good = Message::new(b"ctx", b"test message");
+        let mut keypair = Keypair::<EB>::generate(StdRng::from_seed([0u8; 32]));
+        let signed = keypair.signed_message(&good);
+        assert!(verify_unoptimized(&signed));
+    }
+}

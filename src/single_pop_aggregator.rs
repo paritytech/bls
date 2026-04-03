@@ -186,7 +186,7 @@ impl<'a, E: EngineBLS> Signed for &'a SignatureAggregatorAssumingPoP<E> {
     }
 }
 
-#[cfg(all(test, feature = "std"))]
+#[cfg(test)]
 mod tests {
 
     use crate::EngineBLS;
@@ -194,7 +194,8 @@ mod tests {
     use crate::Message;
     use crate::TinyBLS;
     use crate::UsualBLS;
-    use rand::thread_rng;
+    use rand::SeedableRng;
+    use rand::rngs::StdRng;
     use sha2::Sha256;
 
     use ark_bls12_377::Bls12_377;
@@ -207,7 +208,7 @@ mod tests {
         let good = Message::new(b"ctx", b"test message");
 
         let mut keypair =
-            Keypair::<UsualBLS<Bls12_381, ark_bls12_381::Config>>::generate(thread_rng());
+            Keypair::<UsualBLS<Bls12_381, ark_bls12_381::Config>>::generate(StdRng::from_seed([0u8; 32]));
         let good_sig0 = keypair.sign(&good);
         assert!(good_sig0.verify(&good, &keypair.public));
     }
@@ -217,11 +218,11 @@ mod tests {
         let good = Message::new(b"ctx", b"test message");
 
         let mut keypair0 =
-            Keypair::<UsualBLS<Bls12_381, ark_bls12_381::Config>>::generate(thread_rng());
+            Keypair::<UsualBLS<Bls12_381, ark_bls12_381::Config>>::generate(StdRng::from_seed([0u8; 32]));
         let good_sig0 = keypair0.sign(&good);
 
         let mut keypair1 =
-            Keypair::<UsualBLS<Bls12_381, ark_bls12_381::Config>>::generate(thread_rng());
+            Keypair::<UsualBLS<Bls12_381, ark_bls12_381::Config>>::generate(StdRng::from_seed([1u8; 32]));
         let good_sig1 = keypair1.sign(&good);
 
         let mut aggregated_sigs =
@@ -243,7 +244,7 @@ mod tests {
         let good = Message::new(b"ctx", b"test message");
 
         let mut keypair =
-            Keypair::<UsualBLS<Bls12_381, ark_bls12_381::Config>>::generate(thread_rng());
+            Keypair::<UsualBLS<Bls12_381, ark_bls12_381::Config>>::generate(StdRng::from_seed([0u8; 32]));
         let good_sig = keypair.sign(&good);
 
         let mut aggregated_sigs =
@@ -266,11 +267,11 @@ mod tests {
         let bad1 = Message::new(b"ctx", b"Tab over Space");
 
         let mut keypair0 =
-            Keypair::<UsualBLS<Bls12_381, ark_bls12_381::Config>>::generate(thread_rng());
+            Keypair::<UsualBLS<Bls12_381, ark_bls12_381::Config>>::generate(StdRng::from_seed([0u8; 32]));
         let good_sig0 = keypair0.sign(&good0);
 
         let mut keypair1 =
-            Keypair::<UsualBLS<Bls12_381, ark_bls12_381::Config>>::generate(thread_rng());
+            Keypair::<UsualBLS<Bls12_381, ark_bls12_381::Config>>::generate(StdRng::from_seed([1u8; 32]));
         let bad_sig1 = keypair1.sign(&bad1);
 
         let mut aggregated_sigs = SignatureAggregatorAssumingPoP::<
@@ -293,7 +294,7 @@ mod tests {
         let message = Message::new(b"ctx", b"test message");
         let mut keypairs: Vec<_> = (0..3)
             .into_iter()
-            .map(|_| Keypair::<TinyBLS<Bls12_377, ark_bls12_377::Config>>::generate(thread_rng()))
+            .map(|i| Keypair::<TinyBLS<Bls12_377, ark_bls12_377::Config>>::generate(StdRng::from_seed([i; 32])))
             .collect();
         let pub_keys_in_sig_grp: Vec<PublicKeyInSignatureGroup<TinyBLS377>> = keypairs
             .iter()

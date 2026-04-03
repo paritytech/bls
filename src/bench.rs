@@ -29,8 +29,8 @@ use crate::double_nugget::DoubleNuggetBLS;
 use crate::double_nugget_glv::DoubleNuggetBLSGLV;
 use crate::double_nugget_glv::NuggetDoublePublicKeyGLV;
 use crate::nugget::{NuggetBLS, NuggetSignedMessage};
-use crate::triple_nugget::NuggetTriplePublicKey;
-use crate::triple_nugget::TripleNuggetBLS;
+use crate::experimental::triple_nugget::NuggetTriplePublicKey;
+use crate::experimental::triple_nugget::TripleNuggetBLS;
 use crate::NuggetDoublePublicKey;
 use crate::PublicKeyInSignatureGroup;
 

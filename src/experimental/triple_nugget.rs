@@ -204,7 +204,7 @@ where
     }
 }
 
-#[cfg(all(test, feature = "std"))]
+#[cfg(all(test, feature = "experimental"))]
 mod tests {
     use core::marker::PhantomData;
     use rand::thread_rng;

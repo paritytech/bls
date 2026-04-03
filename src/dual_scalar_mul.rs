@@ -27,7 +27,6 @@ pub trait BLSGLVConfig: GLVConfig {}
 impl BLSGLVConfig for ark_bls12_381::g1::Config {}
 impl BLSGLVConfig for ark_bls12_377::g1::Config {}
 
-impl NonGLVCurve for ark_sw_by_bls12_381::SWProjective {}
 
 /// Trait for dual scalar multiplication (computing a*P + b*Q efficiently).
 /// This is used in Chaum-Pedersen signature verification.
@@ -167,13 +166,13 @@ impl<C: BLSGLVConfig> StrausPrecomputedTable<Projective<C>> {
     pub fn new(generator: Projective<C>, public_key: Projective<C>) -> Self {
         // GLV decompose generator: G -> (G, φ(G))
         let gen_affine = generator.into_affine();
-        let gen_glv: Projective<C> = C::endomorphism_affine(&gen_affine).into();
+        let g_glv: Projective<C> = C::endomorphism_affine(&gen_affine).into();
 
         // GLV decompose public key: PK -> (PK, φ(PK))
         let pk_affine = public_key.into_affine();
         let pk_glv: Projective<C> = C::endomorphism_affine(&pk_affine).into();
 
-        let points = [generator, gen_glv, public_key, pk_glv];
+        let points = [generator, g_glv, public_key, pk_glv];
 
         // Build tables for all 16 sign combinations
         let mut table = Vec::with_capacity(256);
@@ -400,6 +399,8 @@ mod tests {
     use ark_ff::UniformRand;
     use rand::thread_rng;
 
+    impl NonGLVCurve for ark_sw_by_bls12_381::SWProjective {}
+
     // --- glv_sign_index tests ---
 
     #[test]
@@ -437,8 +438,8 @@ mod tests {
     #[test]
     fn test_precompute_sums_table_size() {
         type G1 = Projective<ark_bls12_381::g1::Config>;
-        let gen = G1::generator();
-        let points = [gen, gen + gen];
+        let g = G1::generator();
+        let points = [g, g + g];
         let table = StrausPrecomputedTable::precompute_sums(&points);
         // 2 points => 2^2 = 4 entries
         assert_eq!(table.table.len(), 4);
@@ -447,8 +448,8 @@ mod tests {
     #[test]
     fn test_precompute_sums_identity_at_zero() {
         type G1 = Projective<ark_bls12_381::g1::Config>;
-        let gen = G1::generator();
-        let points = [gen, gen + gen, gen + gen + gen];
+        let g = G1::generator();
+        let points = [g, g + g, g + g + g];
         let table = StrausPrecomputedTable::precompute_sums(&points);
         // 3 points => 2^3 = 8 entries
         assert_eq!(table.table.len(), 8);
@@ -459,12 +460,12 @@ mod tests {
     #[test]
     fn test_precompute_sums_single_point() {
         type G1 = Projective<ark_bls12_381::g1::Config>;
-        let gen = G1::generator();
-        let table = StrausPrecomputedTable::precompute_sums(&[gen]);
-        // 1 point => 2^1 = 2 entries: [0, gen]
+        let g = G1::generator();
+        let table = StrausPrecomputedTable::precompute_sums(&[g]);
+        // 1 point => 2^1 = 2 entries: [0, g]
         assert_eq!(table.table.len(), 2);
         assert!(table.table[0].is_zero());
-        assert_eq!(table.table[1], gen);
+        assert_eq!(table.table[1], g);
     }
 
     #[test]
@@ -485,9 +486,9 @@ mod tests {
     fn test_straus_precomputed_table_new_has_256_entries() {
         type G1 = Projective<ark_bls12_381::g1::Config>;
         let rng = &mut thread_rng();
-        let gen = G1::generator();
+        let g = G1::generator();
         let pk = G1::rand(rng);
-        let table = StrausPrecomputedTable::new(gen, pk);
+        let table = StrausPrecomputedTable::new(g, pk);
         assert_eq!(table.table.len(), 256);
     }
 
@@ -495,9 +496,9 @@ mod tests {
     fn test_straus_precomputed_table_new_first_slice_has_identity() {
         type G1 = Projective<ark_bls12_381::g1::Config>;
         let rng = &mut thread_rng();
-        let gen = G1::generator();
+        let g = G1::generator();
         let pk = G1::rand(rng);
-        let table = StrausPrecomputedTable::new(gen, pk);
+        let table = StrausPrecomputedTable::new(g, pk);
         // First 16-element slice (sign_idx=0, all positive) should have identity at index 0
         assert!(table.table[0].is_zero());
     }
@@ -505,6 +506,7 @@ mod tests {
     // --- NonGLVCurve dual_scalar_mul tests ---
 
     #[test]
+    #[cfg(feature = "experimental")]
     fn test_non_glv_dual_scalar_mul_zero_scalars() {
         type SW = ark_sw_by_bls12_381::SWProjective;
         let rng = &mut thread_rng();
@@ -517,6 +519,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "experimental")]
     fn test_non_glv_dual_scalar_mul_single_scalar() {
         type SW = ark_sw_by_bls12_381::SWProjective;
         let rng = &mut thread_rng();
@@ -535,6 +538,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "experimental")]
     fn test_non_glv_dual_scalar_mul_correctness() {
         type SW = ark_sw_by_bls12_381::SWProjective;
         let rng = &mut thread_rng();
@@ -549,6 +553,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "experimental")]
     fn test_non_glv_dual_scalar_mul_with_precomputed_table() {
         type SW = ark_sw_by_bls12_381::SWProjective;
         let rng = &mut thread_rng();
