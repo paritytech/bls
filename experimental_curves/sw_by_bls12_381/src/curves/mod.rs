@@ -1,0 +1,77 @@
+use ark_ec::{
+    models::CurveConfig,
+    short_weierstrass::{Affine, Projective, SWCurveConfig},
+};
+use ark_ff::MontFp;
+
+use crate::{Fq, Fr};
+
+#[cfg(test)]
+mod tests;
+
+pub type SWAffine = Affine<SWConfig>;
+pub type SWProjective = Projective<SWConfig>;
+
+/// This is a Prime ordered short Weierstrass curve with prime group order matching of
+/// BLS12-381 curve.
+/// These curves have equations of the form:
+///  y² = x^3 + a*x + b
+/// over some base finite field Fq.
+///
+///
+/// Elliptic Curve defined by y^2 = x^3 +
+/// 1513166797894431528222373717573664845820984622488826599884837603702838646568*x +
+/// 50922708377231758951225366790612300991435319491014185911360037520993381910261
+/// over Finite Field of size
+/// 52435875175126190479447740508185965837256304113503012511244875124696220556829
+///
+/// Sage script to calculate these:
+/// <https://github.com/w3f/research-internal/blob/master/stuff/BLS12-381%20Lollipop.ipynb>
+///
+///
+#[derive(Clone, Default, PartialEq, Eq)]
+pub struct SWConfig;
+
+impl CurveConfig for SWConfig {
+    type BaseField = Fq;
+    type ScalarField = Fr;
+
+    /// COFACTOR = 1
+    const COFACTOR: &'static [u64] = &[1];
+
+    /// COFACTOR^(-1) mod r =
+    /// 1
+    const COFACTOR_INV: Fr = MontFp!("1");
+}
+
+impl SWCurveConfig for SWConfig {
+    /// COEFF_A = 1513166797894431528222373717573664845820984622488826599884837603702838646568
+    const COEFF_A: Fq =
+        MontFp!("1513166797894431528222373717573664845820984622488826599884837603702838646568");
+
+    /// COEFF_B = 50922708377231758951225366790612300991435319491014185911360037520993381910261
+    const COEFF_B: Fq =
+        MontFp!("50922708377231758951225366790612300991435319491014185911360037520993381910261");
+
+    /// GENERATOR = (G_GENERATOR_X, G_GENERATOR_Y)
+    const GENERATOR: SWAffine = SWAffine::new_unchecked(GENERATOR_X, GENERATOR_Y);
+}
+
+// sage: SWE = EllipticCurve(Fq, [1513166797894431528222373717573664845820984622488826599884837603702838646568,50922708377231758951225366790612300991435319491014185911360037520993381910261])
+// sage: SWE.order()
+// 52435875175126190479447740508185965837690552500527637822603658699938581184513
+// sage:   C-c C-c
+// sage: SWE.order() == r381
+// True
+//sage: RP = SWE.random_point()
+// sage: RP.order()  == r381
+// sage: RP
+// (21697888439392366162353887427616253059285678698849436591456267913670853936073 : 39058980688943082598133033969421049668453916952578988133085128270080069490286 : 1)
+
+/// GENERATOR_X =
+pub const GENERATOR_X: Fq =
+    MontFp!("21697888439392366162353887427616253059285678698849436591456267913670853936073");
+
+/// GENERATOR_Y =
+pub const GENERATOR_Y: Fq =
+    MontFp!("39058980688943082598133033969421049668453916952578988133085128270080069490286");

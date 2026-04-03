@@ -6,12 +6,11 @@
 use core::borrow::{Borrow, BorrowMut};
 use core::iter::once;
 
-use ark_ec::Group;
-use ark_ff::Zero;
+use ark_ff::{AdditiveGroup, Zero};
 
-use super::single::SignedMessage;
-use super::verifiers::verify_with_distinct_messages;
-use super::*;
+use crate::single::SignedMessage;
+use crate::verifiers::verify_with_distinct_messages;
+use crate::*;
 
 // Slice equality with bytewise equality hack because
 // std does not expose `slice::BytewiseEquality`
@@ -661,7 +660,8 @@ mod tests {
         assert!(bitsig1.merge(&bitsig2).is_err());
 
         let mut multimsg =
-            multi_pop_aggregator::MultiMessageSignatureAggregatorAssumingPoP::<ZBLS>::new();
+            crate::multi_pop_aggregator::MultiMessageSignatureAggregatorAssumingPoP::<ZBLS>::new(
+            );
         multimsg.aggregate(&bitsig1);
         multimsg.aggregate(&bitsig2);
         assert!(multimsg.verify()); // verifiers::verify_with_distinct_messages(&dms,true)

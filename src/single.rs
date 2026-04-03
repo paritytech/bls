@@ -71,7 +71,7 @@ impl<E: EngineBLS> SecretKeyVT<E> {
 
     pub fn from_seed(seed: &[u8]) -> Self {
         let hasher = <DefaultFieldHasher<Sha256> as HashToField<E::Scalar>>::new(&[]);
-        return SecretKeyVT(hasher.hash_to_field(seed, 1)[0]);
+        return SecretKeyVT(hasher.hash_to_field::<1>(seed)[0]);
     }
 }
 
@@ -381,7 +381,7 @@ where
 {
     fn check(&self) -> Result<(), SerializationError> {
         //TODO probabaly turn into vartime and check that because vartime impl valid
-        match (self.key[1].check(), self.key[2].check()) {
+        match (self.key[0].check(), self.key[1].check()) {
             (Ok(()), Ok(())) => Ok(()),
             _ => Err(SerializationError::InvalidData),
         }
@@ -445,7 +445,7 @@ impl<E: EngineBLS> SerializableToBytes for SecretKey<E> {
 
 /// because SecretKey is not canonically serializable and that we need to convert
 /// it to vartime first we need to manually re-implement this trait for secret keys
-//, CanonicalSerialize, CanonicalDeserialize)]
+/// , CanonicalSerialize, CanonicalDeserialize
 /// Detached BLS Signature
 #[derive(Debug, CanonicalSerialize, CanonicalDeserialize)]
 pub struct Signature<E: EngineBLS>(pub E::SignatureGroup);
@@ -626,7 +626,7 @@ impl<E: EngineBLS> Keypair<E> {
         self.sign_with_rng(message, thread_rng())
     }
 
-    /// Create a `SignedMessage` using the default `ThreadRng`.
+    /// Create a `SignedMessage` using a deterministic seed derived from the message and key.
     pub fn signed_message(&mut self, message: &Message) -> SignedMessage<E> {
         let signature = self.sign(&message);
         SignedMessage {

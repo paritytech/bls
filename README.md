@@ -28,48 +28,46 @@ Aggregated and blind signatures are almost the only reasons anyone would conside
 As a rule, aggregation that requires distinct messages still requires one miller loop step per message, so aggregate signatures have rather slow verification times.  You can nevertheless achieve quite small signature sizes like
 
 ```rust
-#[cfg(feature = "experimental")]
-use w3f_bls::{distinct::DistinctMessages, Keypair, Message, Signed, ZBLS};
+use w3f_bls::{Keypair, Message, Signed, ZBLS};
+use w3f_bls::experimental::distinct::DistinctMessages;
+use rand::{SeedableRng, rngs::StdRng};
 
-#[cfg(feature = "experimental")]
-{
-	let mut keypairs = [
-		Keypair::<ZBLS>::generate(::rand::thread_rng()),
-		Keypair::<ZBLS>::generate(::rand::thread_rng()),
-	];
-	let msgs = [
-		"The ships",
-		"hung in the sky",
-		"in much the same way",
-		"that bricks don’t.",
-	]
+let mut keypairs = [
+	Keypair::<ZBLS>::generate(StdRng::from_seed([0u8; 32])),
+	Keypair::<ZBLS>::generate(StdRng::from_seed([1u8; 32])),
+];
+let msgs = [
+	"The ships",
+	"hung in the sky",
+	"in much the same way",
+	"that bricks don't.",
+]
+.iter()
+.map(|m| Message::new(b"Some context", m.as_bytes()))
+.collect::<Vec<_>>();
+let sigs = msgs
 	.iter()
-	.map(|m| Message::new(b"Some context", m.as_bytes()))
+	.zip(keypairs.iter_mut())
+	.map(|(m, k)| k.signed_message(m))
 	.collect::<Vec<_>>();
-	let sigs = msgs
-		.iter()
-		.zip(keypairs.iter_mut())
-		.map(|(m, k)| k.signed_message(m))
-		.collect::<Vec<_>>();
 
-		let dms = sigs
-		.iter()
-		.try_fold(DistinctMessages::<ZBLS>::new(), |dm, sig| dm.add(sig))
-		.unwrap();
-	let signature = <&DistinctMessages<ZBLS> as Signed>::signature(&&dms);
+let dms = sigs
+	.iter()
+	.try_fold(DistinctMessages::<ZBLS>::new(), |dm, sig| dm.add(sig))
+	.unwrap();
+let signature = <&DistinctMessages<ZBLS> as Signed>::signature(&&dms);
 
-		let publickeys = keypairs.iter().map(|k| k.public).collect::<Vec<_>>();
-	let mut dms = msgs
-		.into_iter()
-		.zip(publickeys)
-		.try_fold(
-			DistinctMessages::<ZBLS>::new(),
-			|dm, (message, publickey)| dm.add_message_n_publickey(message, publickey),
-		)
-		.unwrap();
-	dms.add_signature(&signature);
-	assert!(dms.verify())
-}
+let publickeys = keypairs.iter().map(|k| k.public).collect::<Vec<_>>();
+let mut dms = msgs
+	.into_iter()
+	.zip(publickeys)
+	.try_fold(
+		DistinctMessages::<ZBLS>::new(),
+		|dm, (message, publickey)| dm.add_message_n_publickey(message, publickey),
+	)
+	.unwrap();
+dms.add_signature(&signature);
+assert!(dms.verify())
 ```
 Anyone who receives the already aggregated signature along with a list of messages and public keys might reconstruct the signature as shown in the above example.
 
@@ -80,7 +78,7 @@ Assuming you already have proofs-of-possession, then you'll want to do aggregati
 The library offers method for generating and verifying proof of positions both based on BLS and [Schnorr Signature](https://en.wikipedia.org/wiki/Schnorr_signature) which is faster to verify than when using BLS signature itself as proof of position. The following example demonstrate how to generate and verify proof of positions and then using `SignatureAggregatorAssumingPoP` to batch and verify multiple BLS signatures.
 
 ```rust
-use w3f_bls::{Keypair,PublicKey,ZBLS,Message,Signed, ProofOfPossessionGenerator, ProofOfPossession, schnorr_pop::{SchnorrPoP}, multi_pop_aggregator::MultiMessageSignatureAggregatorAssumingPoP};
+use w3f_bls::{Keypair,PublicKey,ZBLS,Message,Signed, ProofOfPossessionGenerator, ProofOfPossession, experimental::schnorr_pop::{SchnorrPoP}, multi_pop_aggregator::MultiMessageSignatureAggregatorAssumingPoP};
 use sha2::Sha256;
 
 let mut keypairs = [Keypair::<ZBLS>::generate(::rand::thread_rng()), Keypair::<ZBLS>::generate(::rand::thread_rng())];
@@ -112,7 +110,8 @@ use ark_ff::Zero;
 use rand::thread_rng;
 
 use w3f_bls::{
-    single_pop_aggregator::SignatureAggregatorAssumingPoP, DoublePublicKeyScheme, EngineBLS, Keypair, Message, PublicKey, PublicKeyInSignatureGroup, Signed, TinyBLS, TinyBLS377,
+    single_pop_aggregator::SignatureAggregatorAssumingPoP, DoubleNuggetBLS, EngineBLS, Keypair,
+    Message, NuggetPublicKey, PublicKey, PublicKeyInSignatureGroup, Signed, TinyBLS, TinyBLS377,
 };
 
 
@@ -123,7 +122,7 @@ let mut keypairs: Vec<_> = (0..3)
     .collect();
 let pub_keys_in_sig_grp: Vec<PublicKeyInSignatureGroup<TinyBLS377>> = keypairs
     .iter()
-    .map(|k| k.into_public_key_in_signature_group())
+    .map(|k| DoubleNuggetBLS::<TinyBLS377>::into_nugget_double_public_key(k).into_public_key_in_signature_group())
     .collect();
 
 let mut prover_aggregator =

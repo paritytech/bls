@@ -1,0 +1,28 @@
+[package]
+name = "ark-sw-by-bls12-381"
+version = "0.0.1"
+authors = ["Syed Hosseini <syed@riseup.net>", "Alistair Stweart <alistair@web3.foundation>"]
+description = "A Short Weierstrass curve with the same prime order group as the BLS12-381 curve"
+repository.workspace = true
+edition.workspace = true
+
+[dependencies]
+ark-ff = { workspace = true }
+ark-ec = { workspace = true }
+ark-std = { workspace = true }
+ark-bls12-381 = { workspace = true, features = [ "scalar_field" ] }
+
+[dev-dependencies]
+ark-serialize = { workspace = true }
+#ark-algebra-test-templates = { workspace = true }
+#ark-algebra-bench-templates = { workspace = true }
+
+[features]
+default = []
+std = [ "ark-std/std", "ark-ff/std", "ark-ec/std", "ark-bls12-381/std" ]
+asm = [ "ark-ff/asm" ]
+
+# [[bench]]
+# name = "ed_by_bls12_381"
+# path = "benches/ed_by_bls12_381.rs"
+# harness = false

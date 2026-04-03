@@ -6,10 +6,37 @@ homepage = "https://github.com/w3f/bls"
 license = "MIT/Apache-2.0"
 name = "w3f-bls"
 repository = "https://github.com/w3f/bls"
-version = "0.1.9"
-edition = "2018"
+version = "0.2.0"
+edition = "2024"
+
+[workspace]
+members = [
+    ".",
+    "experimental_curves/ed_by_bls12_381",
+    "experimental_curves/sw_by_bls12_381",
+]
+
+[workspace.package]
+edition = "2024"
+repository = "https://github.com/w3f/bls"
+
+[workspace.dependencies]
+
+ark-ff = { version = "0.5.0", default-features = false }
+ark-ec = { version = "0.5.0", default-features = false }
+ark-serialize = { version = "0.5.0", default-features = false, features = [ "derive" ] }
+ark-serialize-derive = { version = "0.5.0", default-features = false }
+ark-std = { version = "0.5.0", default-features = false }
+
+ark-bls12-381 = { version = "0.5.0", default-features = false, features = [ "curve" ] }
+ark-bls12-377 = { version = "0.5.0", default-features = false, features = [ "curve" ] }
 
 [dependencies]
+ark-ff = { workspace = true }
+ark-ec = { workspace = true }
+ark-serialize = { workspace = true }
+ark-serialize-derive = { workspace = true }
+
 arrayref = { version = "0.3", default-features = false }
 rand = { version = "0.8.5", default-features = false}
 rand_core = { version = "0.6", default-features = false }
@@ -18,20 +45,29 @@ sha3 = { version = "0.10", default-features = false }
 sha2 = { version = "0.10", default-features = false }
 digest = { version = "0.10", default-features = false }
 
-ark-ff = { version = "0.4.0", default-features = false }
-ark-ec = { version = "0.4.0", default-features = false }
-ark-serialize = { version = "0.4.0", default-features = false, features = [ "derive" ] }
-ark-serialize-derive = { version = "0.4.0", default-features = false }
 
-ark-bls12-381 = { version = "0.4.0", default-features = false, features = [ "curve" ] }
-ark-bls12-377 = { version = "0.4.0", default-features = false, features = [ "curve" ] }
+ark-bls12-381 = { workspace = true }
+ark-bls12-377 = { workspace = true }
 
 zeroize = { version = "1.0", default-features = false, features = [ "zeroize_derive" ] }
 
 [dev-dependencies]
 hex-literal = "0.3.4"
+ark-ed-by-bls12-381 = {path = "./experimental_curves/ed_by_bls12_381"}
+ark-sw-by-bls12-381 = {path = "./experimental_curves/sw_by_bls12_381"}
 
 [features]
 default = ["std"]
 std = ["rand/std"]
-experimental = []
+benchmark = ["std"]
+experimental = ["std"]
+
+[[example]]
+name = "aggregated"
+path = "examples/experimental/aggregated.rs"
+required-features = ["experimental"]
+
+[[example]]
+name = "aggregated_with_pop"
+path = "examples/experimental/aggregated_with_pop.rs"
+required-features = ["experimental"]

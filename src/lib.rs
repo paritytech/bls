@@ -80,11 +80,17 @@
 //!
 //!
 
-//#![feature(test)] needed for cargo bench
+// To run benchmarks (nightly only):
+// 1. Uncomment `#![feature(test)]` below
+// 2. Uncomment `pub mod bench;` in src/experimental/mod.rs as test module
+// 3. Run `cargo +nightly test --features experimental -- --bench`
+//#![feature(test)]
+
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg_attr(feature = "std", doc = include_str!("../README.md"))]
 #[cfg(doctest)]
 pub struct ReadmeDoctests;
+
 
 extern crate ark_serialize;
 extern crate ark_serialize_derive;
@@ -103,33 +109,30 @@ use core::borrow::Borrow;
 use digest::DynDigest;
 
 pub mod chaum_pedersen_signature;
-pub mod double;
-pub mod double_pop;
+pub mod double_nugget;
+pub mod double_nugget_glv;
+pub mod dual_scalar_mul;
 pub mod engine;
-pub mod schnorr_pop;
+pub mod nugget;
+pub mod nugget_pop;
 pub mod serialize;
 pub mod single;
 pub mod verifiers;
 
-#[cfg(feature = "std")]
 pub mod multi_pop_aggregator;
-#[cfg(feature = "std")]
 pub mod single_pop_aggregator;
 
 #[cfg(feature = "experimental")]
-pub mod bit;
-#[cfg(feature = "experimental")]
-pub mod delinear;
-#[cfg(feature = "experimental")]
-pub mod distinct;
+pub mod experimental;
 
 pub use engine::*;
 
-pub use double::{
-    DoublePublicKey, DoublePublicKeyScheme, DoubleSignature, PublicKeyInSignatureGroup,
+pub use double_nugget::{DoubleNuggetBLS, DoubleSignedMessage, NuggetDoublePublicKey};
+pub use double_nugget_glv::NuggetDoublePublicKeyGLV;
+pub use nugget::{
+    NuggetBLS, NuggetPublicKey, NuggetSignature, PublicKeyInSignatureGroup, PublicKeyInSisterGroup,
 };
-pub use double_pop::{NuggetBLSPoP, NuggetBLSnCPPoP};
-pub use schnorr_pop::SchnorrProof;
+pub use nugget_pop::{NuggetBLSPoP, NuggetBLSnCPPoP};
 pub use serialize::SerializableToBytes;
 pub use single::{Keypair, KeypairVT, PublicKey, SecretKey, SecretKeyVT, Signature, SignedMessage};
 

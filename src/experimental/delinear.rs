@@ -27,9 +27,9 @@ use sha3::{
 
 use std::collections::HashMap;
 
-use super::single::SignedMessage;
-use super::verifiers::verify_with_distinct_messages;
-use super::*;
+use crate::single::SignedMessage;
+use crate::verifiers::verify_with_distinct_messages;
+use crate::*;
 
 /// Delinearized batched and aggregated BLS signatures.
 ///
@@ -95,7 +95,7 @@ impl<E: EngineBLS> Delinearized<E> {
         Delinearized::new(t)
     }
     pub fn new_batched_rng<R: Rng>(mut rng: R) -> Delinearized<E> {
-        let r = rng.gen::<[u8; 32]>();
+        let r = rng.r#gen::<[u8; 32]>();
         Delinearized::new_keyed(&r[..])
     }
 
@@ -122,7 +122,7 @@ impl<E: EngineBLS> Delinearized<E> {
         let (x, y) = array_refs!(&b, 8, 8);
         let mut x: <E::Scalar as PrimeField>::BigInt = u64::from_le_bytes(*x).into();
         let y: <E::Scalar as PrimeField>::BigInt = u64::from_le_bytes(*y).into();
-        x.muln(64);
+        x <<= 6; //warning: use of deprecated method `ark_ff::BigInteger::muln`: please use the operator `<<` instead : x.muln(64);
         x.add_with_carry(&y);
         <E::Scalar as PrimeField>::from_bigint(x).unwrap()
     }
