@@ -31,8 +31,14 @@ use crate::double_nugget_glv::NuggetDoublePublicKeyGLV;
 use crate::nugget::{NuggetBLS, NuggetSignedMessage};
 use crate::experimental::triple_nugget::NuggetTriplePublicKey;
 use crate::experimental::triple_nugget::TripleNuggetBLS;
+use crate::dual_scalar_mul::NonGLVCurve;
+use crate::serialize::SerializableToBytes;
 use crate::NuggetDoublePublicKey;
 use crate::PublicKeyInSignatureGroup;
+
+// SerializableToBytes for ark_sw_by_bls12_381::SWProjective is implemented in triple_nugget tests
+
+// NonGLVCurve for ark_sw_by_bls12_381::SWProjective is implemented in dual_scalar_mul tests
 
 // #[bench]
 // fn only_generate_key_pairs(b: &mut Bencher) {

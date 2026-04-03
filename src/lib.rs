@@ -80,9 +80,11 @@
 //!
 //!
 
-//needed for cargo bench but only works in nightly
-//#![feature(test)] 
-//pub mod bench;
+// To run benchmarks (nightly only):
+// 1. Uncomment `#![feature(test)]` below
+// 2. Uncomment `pub mod bench;` in src/experimental/mod.rs as test module
+// 3. Run `cargo +nightly test --features experimental -- --bench`
+//#![feature(test)]
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg_attr(feature = "std", doc = include_str!("../README.md"))]
