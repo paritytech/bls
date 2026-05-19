@@ -198,8 +198,7 @@ pub trait EngineBLS {
             signature,
         )];
         Self::final_exponentiation(Self::miller_loop(inputs.into_iter().map(|t| t).chain(&lhs)))
-            .unwrap()
-            == (PairingOutput::<Self::Engine>::zero()) //zero is the target_field::one !!
+            == Some(PairingOutput::<Self::Engine>::zero()) //zero is the target_field::one !!
     }
 
     /// Prepared negative of the generator of the public key curve.
