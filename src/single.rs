@@ -269,6 +269,27 @@ impl<E: EngineBLS> SecretKey<E> {
         self.sign_once(message)
     }
 
+    /// Sign deterministically, reseeding the resplit RNG from a hash
+    /// of both key halves and the message.
+    pub fn seeded_sign(&mut self, message: &Message) -> Signature<E> {
+        let mut serialized_part1 = [0u8; 32];
+        let mut serialized_part2 = [0u8; 32];
+        self.key[0]
+            .serialize_compressed(&mut serialized_part1[..])
+            .unwrap();
+        self.key[1]
+            .serialize_compressed(&mut serialized_part2[..])
+            .unwrap();
+
+        let seed_digest = Sha256::new()
+            .chain_update(serialized_part1)
+            .chain_update(serialized_part2)
+            .chain_update(message.0);
+
+        let seed: [u8; 32] = seed_digest.finalize().into();
+        self.sign(message, StdRng::from_seed(seed))
+    }
+
     /// Derive our public key from our secret key
     ///
     /// We do not resplit for side channel protections here since
@@ -605,23 +626,7 @@ impl<E: EngineBLS> Keypair<E> {
 
     /// Sign a message using a Seedabale RNG created from a seed derived from the message and key
     pub fn sign(&mut self, message: &Message) -> Signature<E> {
-        let mut serialized_part1 = [0u8; 32];
-        let mut serialized_part2 = [0u8; 32];
-        self.secret.key[0]
-            .serialize_compressed(&mut serialized_part1[..])
-            .unwrap();
-        self.secret.key[1]
-            .serialize_compressed(&mut serialized_part2[..])
-            .unwrap();
-
-        let seed_digest = Sha256::new()
-            .chain_update(serialized_part1)
-            .chain_update(serialized_part2)
-            .chain_update(message.0);
-
-        let seed: [u8; 32] = seed_digest.finalize().into();
-
-        self.sign_with_rng::<StdRng>(message, SeedableRng::from_seed(seed))
+        self.secret.seeded_sign(message)
     }
 
     #[cfg(feature = "std")]

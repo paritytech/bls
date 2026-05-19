@@ -13,7 +13,7 @@ use crate::dual_scalar_mul::DualScalarMultiplication;
 use crate::engine::EngineBLS;
 use crate::nugget::{NuggetBLS, NuggetPublicKey, NuggetSignature};
 use crate::serialize::SerializableToBytes;
-use crate::{Message, SecretKeyVT};
+use crate::{Message, SecretKey, SecretKeyVT};
 
 pub type DLEQProof<E> = (<E as EngineBLS>::Scalar, <E as EngineBLS>::Scalar);
 pub type ChaumPedersenSignature<E> = NuggetSignature<E>;
@@ -333,6 +333,53 @@ where
         >>::new(&[]);
         let scalar_seed = [hashed_secret_key, message_point_as_bytes.clone()].concat();
         hasher.hash_to_field::<1>(scalar_seed.as_slice())[0]
+    }
+}
+
+/// Side-channel-protected variant: BLS signing goes through
+/// `SecretKey::seeded_sign` (resplits the key with deterministic
+/// randomness), while DLEQ proof generation and witness derivation
+/// delegate to the vartime form, which is acceptable because they
+/// operate over auxiliary scalars rather than the long-term key.
+impl<E: EngineBLS, S: CurveGroup, H: FixedOutputReset + Default + Clone>
+    ChaumPedersenSigner<E, S, H> for SecretKey<E>
+where
+    S: PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes,
+{
+    fn generate_cp_signature(&mut self, message: &Message) -> ChaumPedersenSignature<E> {
+        let bls_signature = self.seeded_sign(message);
+        let dleq = <Self as ChaumPedersenSigner<E, S, H>>::generate_dleq_proof(
+            self,
+            message,
+            bls_signature.0,
+        );
+        NuggetSignature(bls_signature.0, dleq)
+    }
+
+    fn generate_dleq_proof(
+        &mut self,
+        message: &Message,
+        bls_signature: E::SignatureGroup,
+    ) -> DLEQProof<E> {
+        <SecretKeyVT<E> as ChaumPedersenSigner<E, S, H>>::generate_dleq_proof(
+            &mut self.into_vartime(),
+            message,
+            bls_signature,
+        )
+    }
+
+    fn generate_witness_scaler(
+        &self,
+        _message_point_as_bytes: &Vec<u8>,
+    ) -> <<E as EngineBLS>::PublicKeyGroup as PrimeGroup>::ScalarField {
+        // Unreachable: `generate_dleq_proof` for `SecretKey` delegates to
+        // the `SecretKeyVT` impl, which calls its own `generate_witness_scaler`.
+        // Trait coherence forces us to provide a body here, but no caller
+        // ever lands on it.
+        unimplemented!(
+            "SecretKey::generate_witness_scaler is never called; \
+             dleq generation delegates to SecretKeyVT"
+        )
     }
 }
 
