@@ -32,7 +32,7 @@ use ark_ec::{
 };
 use ark_ff::field_hashers::{DefaultFieldHasher, HashToField};
 use ark_ff::{Field, PrimeField, UniformRand, Zero};
-use ark_serialize::CanonicalSerialize;
+use ark_serialize::{CanonicalSerialize, Valid};
 use rand::Rng;
 use rand_core::RngCore;
 
@@ -217,6 +217,17 @@ pub trait EngineBLS {
     fn prepare_public_key(g: impl Into<Self::PublicKeyGroupAffine>) -> Self::PublicKeyPrepared {
         let g_affine: Self::PublicKeyGroupAffine = g.into();
         Self::PublicKeyPrepared::from(g_affine)
+    }
+
+    /// Reject public keys that are the identity element or not in the
+    /// prime-order subgroup. Defends verification against inputs that
+    /// bypass the deserialization-time check — e.g. direct tuple-struct
+    /// construction, or aggregates that sum to the identity.
+    ///
+    /// Implements `KeyValidate` from
+    /// <https://www.ietf.org/archive/id/draft-irtf-cfrg-bls-signature-06.html#name-validating-public-keys>.
+    fn validate_public_key(g: &Self::PublicKeyGroupAffine) -> bool {
+        !g.is_zero() && g.check().is_ok()
     }
 
     /// Process the signature to be use in pairing. This has to be

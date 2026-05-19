@@ -37,6 +37,22 @@ pub type SignatureAffine<E> = <<E as EngineBLS>::SignatureGroup as CurveGroup>::
 
 // ── Shared helpers ──────────────────────────────────────────────────
 
+/// Validate a public key with `EngineBLS::validate_public_key` and, on
+/// success, return the prepared form. Returns `None` if the public key
+/// is the identity element or not in the prime-order subgroup. All
+/// verifier paths should go through this wrapper so the check cannot
+/// be skipped by callers constructing `PublicKey` directly or by
+/// aggregates that sum to the identity.
+pub fn validate_and_prepare_public_key<E: EngineBLS>(
+    g: impl Into<PublicKeyAffine<E>>,
+) -> Option<E::PublicKeyPrepared> {
+    let g_affine: PublicKeyAffine<E> = g.into();
+    if !E::validate_public_key(&g_affine) {
+        return None;
+    }
+    Some(E::prepare_public_key(g_affine))
+}
+
 /// Verify from fully normalized (affine) inputs.
 /// All public keys, messages, and the signature must already be in affine form.
 /// This prepares the pairing inputs and calls `verify_prepared`.
@@ -46,11 +62,13 @@ fn verify_normalized<E: EngineBLS>(
     affine_signature: SignatureAffine<E>,
 ) -> bool {
     let prepared_sig = E::prepare_signature(affine_signature);
-    let prepared = affine_publickeys
-        .iter()
-        .zip(affine_messages)
-        .map(|(pk, m)| (E::prepare_public_key(*pk), E::prepare_signature(*m)))
-        .collect::<Vec<_>>();
+    let mut prepared = Vec::with_capacity(affine_publickeys.len());
+    for (pk, m) in affine_publickeys.iter().zip(affine_messages) {
+        let Some(prepared_pk) = validate_and_prepare_public_key::<E>(*pk) else {
+            return false;
+        };
+        prepared.push((prepared_pk, E::prepare_signature(*m)));
+    }
     E::verify_prepared(prepared_sig, prepared.iter())
 }
 
@@ -143,15 +161,18 @@ fn normalize_messages_and_signature<E: EngineBLS>(
 /// Simple unoptimized BLS signature verification.  Useful for testing.
 pub fn verify_unoptimized<S: Signed>(s: S) -> bool {
     let signature = S::E::prepare_signature(s.signature().0);
-    let prepared = s
-        .messages_and_publickeys()
-        .map(|(message, public_key)| {
-            (
-                S::E::prepare_public_key(public_key.borrow().0),
-                S::E::prepare_signature(message.borrow().hash_to_signature_curve::<S::E>()),
-            )
-        })
-        .collect::<Vec<(_, _)>>();
+    let mut prepared = Vec::new();
+    for (message, public_key) in s.messages_and_publickeys() {
+        let Some(prepared_pk) =
+            validate_and_prepare_public_key::<S::E>(public_key.borrow().0)
+        else {
+            return false;
+        };
+        prepared.push((
+            prepared_pk,
+            S::E::prepare_signature(message.borrow().hash_to_signature_curve::<S::E>()),
+        ));
+    }
     S::E::verify_prepared(signature, prepared.iter())
 }
 
@@ -365,12 +386,46 @@ fn verify_with_gaussian_elimination<S: Signed>(s: S) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Keypair, Message, UsualBLS};
-    use ark_bls12_381::Bls12_381;
+    use crate::single::{SecretKeyVT, SignedMessage};
+    use crate::{Keypair, Message, PublicKey, UsualBLS};
+    use ark_bls12_381::{Bls12_381, Fq, G1Affine};
+    use ark_ec::AffineRepr;
+    use ark_ff::{UniformRand, Zero};
+    use ark_serialize::Valid;
     use rand::rngs::StdRng;
     use rand::SeedableRng;
 
     type EB = UsualBLS<Bls12_381, ark_bls12_381::Config>;
+
+    /// Keypair with secret scalar zero and identity public key. The
+    /// produced signature is also identity, so every pairing equation
+    /// reduces to `identity == identity` and an unprotected verifier
+    /// would accept. Any rejection observed in the verifier tests
+    /// below is therefore attributable to `validate_public_key`.
+    fn identity_keypair() -> Keypair<EB> {
+        Keypair {
+            public: PublicKey::<EB>(<EB as EngineBLS>::PublicKeyGroup::zero()),
+            secret: SecretKeyVT::<EB>(<EB as EngineBLS>::Scalar::zero())
+                .into_split(StdRng::from_seed([0u8; 32])),
+        }
+    }
+
+    fn identity_signed() -> SignedMessage<EB> {
+        identity_keypair().signed_message(&Message::new(b"ctx", b"test message"))
+    }
+
+    /// A G1 point on the curve but outside the prime-order subgroup.
+    fn non_subgroup_g1() -> G1Affine {
+        let mut rng = StdRng::from_seed([42u8; 32]);
+        loop {
+            let x = Fq::rand(&mut rng);
+            if let Some(point) = G1Affine::get_point_from_x_unchecked(x, false) {
+                if point.check().is_err() {
+                    return point;
+                }
+            }
+        }
+    }
 
     #[test]
     fn verify_simple_single_signature() {
@@ -400,5 +455,31 @@ mod tests {
         let mut keypair = Keypair::<EB>::generate(StdRng::from_seed([0u8; 32]));
         let signed = keypair.signed_message(&good);
         assert!(verify_unoptimized(&signed));
+    }
+
+    #[test]
+    fn verify_simple_rejects_identity_pk() {
+        assert!(!verify_simple(&identity_signed()));
+    }
+
+    #[test]
+    fn verify_unoptimized_rejects_identity_pk() {
+        assert!(!verify_unoptimized(&identity_signed()));
+    }
+
+    #[test]
+    fn verify_with_distinct_messages_rejects_identity_pk() {
+        assert!(!verify_with_distinct_messages(&identity_signed(), true));
+    }
+
+    #[test]
+    fn validate_and_prepare_public_key_rejects_identity() {
+        let identity = PublicKeyAffine::<EB>::zero();
+        assert!(validate_and_prepare_public_key::<EB>(identity).is_none());
+    }
+
+    #[test]
+    fn validate_and_prepare_public_key_rejects_non_subgroup() {
+        assert!(validate_and_prepare_public_key::<EB>(non_subgroup_g1()).is_none());
     }
 }

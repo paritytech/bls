@@ -458,7 +458,11 @@ impl<E: EngineBLS> Signature<E> {
 
     /// Verify a single BLS signature
     pub fn verify(&self, message: &Message, publickey: &PublicKey<E>) -> bool {
-        let publickey = E::prepare_public_key(publickey.0);
+        let Some(publickey) =
+            crate::verifiers::validate_and_prepare_public_key::<E>(publickey.0)
+        else {
+            return false;
+        };
         // TODO: Bentchmark these two variants
         // Variant 1.  Do not batch any normalizations
         let message = E::prepare_signature(message.hash_to_signature_curve::<E>());
@@ -991,5 +995,26 @@ mod tests {
         test_deserialize_random_value_as_secret_key_fails::<Bls12_377, ark_bls12_377::Config>(
             random_seed.as_slice(),
         );
+    }
+
+    /// Keypair with secret=0, public=identity produces an identity
+    /// signature, so the pairing equation reduces to `identity == identity`
+    /// — an unprotected `Signature::verify` would accept. Rejection here
+    /// is attributable to `validate_public_key`.
+    #[test]
+    fn signature_verify_rejects_identity_pk() {
+        use ark_ff::Zero;
+        use rand::{rngs::StdRng, SeedableRng};
+
+        type EB = UsualBLS<Bls12_381, ark_bls12_381::Config>;
+
+        let mut keypair = Keypair::<EB> {
+            public: PublicKey::<EB>(<EB as EngineBLS>::PublicKeyGroup::zero()),
+            secret: SecretKeyVT::<EB>(<EB as EngineBLS>::Scalar::zero())
+                .into_split(StdRng::from_seed([0u8; 32])),
+        };
+        let s = keypair.signed_message(&Message::new(b"ctx", b"test message"));
+        assert!(!s.signature.verify(&s.message, &s.publickey));
+        assert!(!Signed::verify(&s));
     }
 }
