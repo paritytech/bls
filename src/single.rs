@@ -45,6 +45,7 @@ use sha3::{
 };
 
 use digest::Digest;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use core::iter::once;
 
@@ -54,8 +55,8 @@ use crate::{EngineBLS, Message, Signed};
 
 /// Secret signing key lacking the side channel protections from
 /// key splitting.  Avoid using directly in production.
-#[derive(CanonicalSerialize, CanonicalDeserialize)]
-pub struct SecretKeyVT<E: EngineBLS>(pub E::Scalar);
+#[derive(CanonicalSerialize, CanonicalDeserialize, Zeroize, ZeroizeOnDrop)]
+pub struct SecretKeyVT<E: EngineBLS>(#[zeroize] pub E::Scalar);
 
 impl<E: EngineBLS> Clone for SecretKeyVT<E> {
     fn clone(&self) -> Self {
@@ -163,10 +164,11 @@ impl<E: EngineBLS> SecretKeyVT<E> {
 
 /// Secret signing key including the side channel protections from
 /// key splitting.
+#[derive(ZeroizeOnDrop)]
 pub struct SecretKey<E: EngineBLS> {
-    key: [E::Scalar; 2],
-    old_unsigned: E::SignatureGroup,
-    old_signed: E::SignatureGroup,
+    #[zeroize] key: [E::Scalar; 2],
+    #[zeroize] old_unsigned: E::SignatureGroup,
+    #[zeroize] old_signed: E::SignatureGroup,
 }
 
 impl<E: EngineBLS> Clone for SecretKey<E> {
@@ -285,6 +287,9 @@ impl<E: EngineBLS> SecretKey<E> {
             .chain_update(serialized_part1)
             .chain_update(serialized_part2)
             .chain_update(message.0);
+
+        ::zeroize::Zeroize::zeroize(&mut serialized_part1);
+        ::zeroize::Zeroize::zeroize(&mut serialized_part2);
 
         let seed: [u8; 32] = seed_digest.finalize().into();
         self.sign(message, StdRng::from_seed(seed))

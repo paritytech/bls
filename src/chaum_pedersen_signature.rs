@@ -322,10 +322,12 @@ where
         &self,
         message_point_as_bytes: &Vec<u8>,
     ) -> <<E as EngineBLS>::PublicKeyGroup as PrimeGroup>::ScalarField {
-        let secret_key_as_bytes = self.to_bytes();
-
         let mut secret_key_hasher = H::default();
+
+        let mut secret_key_as_bytes = self.to_bytes();
         secret_key_hasher.update(secret_key_as_bytes.as_slice());
+        ::zeroize::Zeroize::zeroize(secret_key_as_bytes.as_mut_slice());
+
         let hashed_secret_key = secret_key_hasher.finalize_fixed_reset().to_vec();
 
         let hasher = <DefaultFieldHasher<H> as HashToField<
