@@ -667,9 +667,9 @@ impl<'a, E: EngineBLS> Signed for &'a SignedMessage<E> {
     type M = Message;
     type PKG = PublicKey<E>;
 
-    type PKnM = ::core::iter::Once<(Message, PublicKey<E>)>;
-
-    fn messages_and_publickeys(self) -> Self::PKnM {
+    fn messages_and_publickeys(
+        self,
+    ) -> impl Iterator<Item = (Message, PublicKey<E>)> + ExactSizeIterator {
         once((self.message.clone(), self.publickey)) // TODO:  Avoid clone
     }
 

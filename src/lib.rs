@@ -91,7 +91,6 @@
 #[cfg(doctest)]
 pub struct ReadmeDoctests;
 
-
 extern crate ark_serialize;
 extern crate ark_serialize_derive;
 
@@ -253,8 +252,6 @@ impl<'a> From<&'a [u8]> for Message {
 /// We shall make `messages_and_publickeys` take `&sefl` and
 /// remove these limitations in the future once ATCs stabalize,
 /// thus removing `PKG`.  See [Rust RFC 1598](https://github.com/rust-lang/rfcs/blob/master/text/1598-generic_associated_types.md)
-/// We shall eventually remove MnPK entirely whenever `-> impl Trait`
-/// in traits gets stabalized.  See [Rust RFCs 1522, 1951, and 2071](https://github.com/rust-lang/rust/issues/34511
 pub trait Signed: Sized {
     type E: EngineBLS;
 
@@ -264,16 +261,11 @@ pub trait Signed: Sized {
     type M: Borrow<Message>; // = Message;
     type PKG: Borrow<PublicKey<Self::E>>; // = PublicKey<Self::E>;
 
-    /// Iterator over, messages and public key reference pairs.
-    type PKnM: Iterator<Item = (Self::M, Self::PKG)> + ExactSizeIterator;
-    // type PKnM<'a>: Iterator<Item = (
-    //    &'a <<Self as Signed<'a>>::E as EngineBLS>::PublicKeyGroup,
-    //    &'a Self::M,
-    // )> + DoubleEndedIterator + ExactSizeIterator + 'a;
-
     /// Returns an iterator over messages and public key reference for
     /// pairings, often only partially aggregated.
-    fn messages_and_publickeys(self) -> Self::PKnM;
+    fn messages_and_publickeys(
+        self,
+    ) -> impl Iterator<Item = (Self::M, Self::PKG)> + ExactSizeIterator;
     // fn messages_and_publickeys<'a>(&'s self) -> PKnM<'a>
     // -> impl Iterator<Item = (&'a Self::M, &'a Self::E::PublicKeyGroup)> + 'a;
 
