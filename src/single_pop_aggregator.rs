@@ -132,21 +132,6 @@ impl<E: EngineBLS> SignatureAggregatorAssumingPoP<E> {
         self.aggregated_publickey
     }
 
-    // /// Aggregage BLS signatures assuming they have proofs-of-possession
-    // /// TODO this function should return Result refusing to aggregate messages
-    // /// different than the message the aggregator is initiated at
-    // pub fn aggregate<'a,S>(&mut self, signed: &'a S)
-    // where
-    //     &'a S: Signed<E=E>,
-    //     <&'a S as Signed>::PKG: Borrow<PublicKey<E>>,
-    // {
-    //     let signature = signed.signature();
-    //     for (message,pubickey) in signed.messages_and_publickeys() {
-    //         self.add_message_n_publickey(message.borrow(),pubickey.borrow());
-    //     }
-    //     self.add_signature(&signature);
-    // }
-
     pub fn verify_using_aggregated_auxiliary_public_keys<
         RandomOracle: FixedOutputReset + Default + Clone,
     >(

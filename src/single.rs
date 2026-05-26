@@ -105,11 +105,7 @@ impl<E: EngineBLS> SecretKeyVT<E> {
 
     /// Derive our public key from our secret key
     pub fn into_public(&self) -> PublicKey<E> {
-        // TODO str4d never decided on projective vs affine here, so benchmark both versions.
         PublicKey(<E::PublicKeyGroup as CurveGroup>::Affine::generator().into_group() * self.0)
-        // let mut g = <E::PublicKeyGroup as CurveGroup>::one();
-        // g *= self.0;
-        // PublicKey(p)
     }
 }
 
@@ -278,15 +274,6 @@ impl<E: EngineBLS> SecretKey<E> {
         let mut publickey = generator * self.key[0];
         publickey += generator.into_group() * self.key[1];
         PublicKey(publickey)
-        // TODO str4d never decided on projective vs affine here, so benchmark this.
-        /*
-        let mut x = <E::PublicKeyGroup as CurveGroup>::one();
-        x *= self.0;
-        let y = <E::PublicKeyGroup as CurveGroup>::one();
-        y *= self.1;
-        x += &y;
-        PublicKey(x)
-        */
     }
 }
 
