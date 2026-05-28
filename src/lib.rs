@@ -215,7 +215,8 @@ impl Message {
     fn cipher_suite<E: EngineBLS>(&self) -> Vec<u8> {
         let id = match self.2 {
             MessageType::ProofOfPossession => PROOF_OF_POSSESSION_ID,
-            _ => NORMAL_MESSAGE_SIGNATURE_ID,
+            MessageType::NormalAssumingPoP => NORMAL_MESSAGE_SIGNATURE_ID,
+            MessageType::NormalBasic => NORMAL_MESSAGE_SIGNATURE_ID,
         };
 
         let h2c_suite_id = [
@@ -228,7 +229,7 @@ impl Message {
         let sc_tag = match self.2 {
             MessageType::ProofOfPossession => POP_MESSAGE,
             MessageType::NormalAssumingPoP => NORMAL_MESSAGE_SIGNATURE_ASSUMING_POP,
-            _ => NORMAL_MESSAGE_SIGNATURE_BASIC,
+            MessageType::NormalBasic => NORMAL_MESSAGE_SIGNATURE_BASIC,
         };
 
         [id, &h2c_suite_id[..], sc_tag].concat()

@@ -687,7 +687,7 @@ mod tests {
 
         let mut countsig = CountSignedMessage::<ZBLS, _>::new(pop.clone(), msg1);
         assert!(countsig.signers.len() == 1);
-        assert!(countsig.verify()); // verifiers::verify_with_distinct_messages(&dms,true)
+        assert!(countsig.verify());
         assert!(countsig.add_bitsig(&bitsig1).is_ok());
         assert!(bitsig1.signature == countsig.signature);
         assert!(countsig.signers.len() == 1);
