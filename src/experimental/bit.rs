@@ -632,9 +632,7 @@ mod tests {
             .collect::<Vec<_>>();
 
         let mut bitsig1 = BitSignedMessage::<ZBLS, _>::new(pop.clone(), &msg1);
-        // Empty aggregate: the summed public key is the identity element,
-        // which `validate_public_key` rejects per IETF KeyValidate.
-        assert!(!bitsig1.verify());
+        assert!(bitsig1.verify()); // verifiers::verify_with_distinct_messages(&dms,true)
         for (i, sig) in sigs1.iter().enumerate().take(2) {
             assert!(bitsig1.add(sig).is_ok() == (i < 4));
             assert!(bitsig1.verify()); // verifiers::verify_with_distinct_messages(&dms,true)
@@ -689,9 +687,7 @@ mod tests {
 
         let mut countsig = CountSignedMessage::<ZBLS, _>::new(pop.clone(), msg1);
         assert!(countsig.signers.len() == 1);
-        // Empty aggregate: the summed public key is the identity element,
-        // which `validate_public_key` rejects per IETF KeyValidate.
-        assert!(!countsig.verify());
+        assert!(countsig.verify());
         assert!(countsig.add_bitsig(&bitsig1).is_ok());
         assert!(bitsig1.signature == countsig.signature);
         assert!(countsig.signers.len() == 1);

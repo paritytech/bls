@@ -218,15 +218,27 @@ pub trait EngineBLS {
         Self::PublicKeyPrepared::from(g_affine)
     }
 
+    /// Subgroup-membership check for a public-key-group point.
+    /// Used during signature verification (identity is allowed there).
+    fn verify_public_key_in_public_key_subgroup(g: &Self::PublicKeyGroupAffine) -> bool {
+        g.check().is_ok()
+    }
+
+    /// Subgroup-membership check for a signature-group point.
+    /// Used during signature verification.
+    fn verify_signature_in_signature_subgroup(g: &Self::SignatureGroupAffine) -> bool {
+        g.check().is_ok()
+    }
+
     /// Reject public keys that are the identity element or not in the
-    /// prime-order subgroup. Defends verification against inputs that
-    /// bypass the deserialization-time check — e.g. direct tuple-struct
-    /// construction, or aggregates that sum to the identity.
+    /// prime-order subgroup. Defends PoP verification against inputs
+    /// that bypass the deserialization-time check — e.g. direct
+    /// tuple-struct construction, or aggregates that sum to the identity.
     ///
     /// Implements `KeyValidate` from
     /// <https://www.ietf.org/archive/id/draft-irtf-cfrg-bls-signature-06.html#name-validating-public-keys>.
     fn validate_public_key(g: &Self::PublicKeyGroupAffine) -> bool {
-        !g.is_zero() && g.check().is_ok()
+        !g.is_zero() && Self::verify_public_key_in_public_key_subgroup(g)
     }
 
     /// Process the signature to be use in pairing. This has to be

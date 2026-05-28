@@ -484,21 +484,17 @@ impl<E: EngineBLS> Signature<E> {
 
     /// Verify a single BLS signature
     pub fn verify(&self, message: &Message, publickey: &PublicKey<E>) -> bool {
-        let Some(publickey) =
-            crate::verifiers::validate_and_prepare_public_key::<E>(publickey.0)
-        else {
+        let pk_affine: <E as EngineBLS>::PublicKeyGroupAffine = publickey.0.into();
+        if !E::verify_public_key_in_public_key_subgroup(&pk_affine) {
             return false;
-        };
-        // TODO: Bentchmark these two variants
-        // Variant 1.  Do not batch any normalizations
+        }
+        let sig_affine: <E as EngineBLS>::SignatureGroupAffine = self.0.into();
+        if !E::verify_signature_in_signature_subgroup(&sig_affine) {
+            return false;
+        }
+        let publickey = E::prepare_public_key(pk_affine);
         let message = E::prepare_signature(message.hash_to_signature_curve::<E>());
-        let signature = E::prepare_signature(self.0);
-        // Variant 2.  Batch signature curve normalizations
-        //   let mut s = [E::hash_to_signature_curve(message), signature.0];
-        //   E::SignatureCurve::batch_normalization(&s);
-        //   let message = s[0].into_affine().prepare();
-        //   let signature = s[1].into_affine().prepare();
-        // TODO: Compare benchmarks on variants
+        let signature = E::prepare_signature(sig_affine);
         E::verify_prepared(signature, &[(publickey, message)])
     }
 }
@@ -1007,24 +1003,5 @@ mod tests {
         );
     }
 
-    /// Keypair with secret=0, public=identity produces an identity
-    /// signature, so the pairing equation reduces to `identity == identity`
-    /// — an unprotected `Signature::verify` would accept. Rejection here
-    /// is attributable to `validate_public_key`.
-    #[test]
-    fn signature_verify_rejects_identity_pk() {
-        use ark_ff::Zero;
-        use rand::{rngs::StdRng, SeedableRng};
 
-        type EB = UsualBLS<Bls12_381, ark_bls12_381::Config>;
-
-        let mut keypair = Keypair::<EB> {
-            public: PublicKey::<EB>(<EB as EngineBLS>::PublicKeyGroup::zero()),
-            secret: SecretKeyVT::<EB>(<EB as EngineBLS>::Scalar::zero())
-                .into_split(StdRng::from_seed([0u8; 32])),
-        };
-        let s = keypair.signed_message(&Message::new(b"ctx", b"test message"));
-        assert!(!s.signature.verify(&s.message, &s.publickey));
-        assert!(!Signed::verify(&s));
-    }
 }

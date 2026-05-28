@@ -92,11 +92,12 @@ impl<E: EngineBLS, H: FixedOutputReset + Default + Clone + 'static>
         let mut randomized_pub_in_g1 = public_key_in_signature_group;
         randomized_pub_in_g1 *= randomization_coefficient;
         let signature = E::prepare_signature(self.0 + randomized_pub_in_g1);
-        let Some(prepared_public_key) =
-            crate::verifiers::validate_and_prepare_public_key::<E>(public_key_of_prover.1)
-        else {
+        let public_key_affine: <E as EngineBLS>::PublicKeyGroupAffine =
+            public_key_of_prover.1.into();
+        if !E::validate_public_key(&public_key_affine) {
             return false;
-        };
+        }
+        let prepared_public_key = E::prepare_public_key(public_key_affine);
         let prepared = [
             (
                 prepared_public_key.clone(),
