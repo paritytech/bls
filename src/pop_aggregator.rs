@@ -108,6 +108,10 @@ impl<E: EngineBLS> SignatureAggregatorAssumingPoP<E> {
 
     /// Add a `Message` and public key to our internal data.
     ///
+    /// The caller assumes the responsibility of verifying the proof of
+    /// possession for the public key before adding it to the batch.
+    /// Failing to do so, breaks the security of the signature scheme.
+    ///
     /// Public keys signing the same message are merged so that each
     /// distinct message ends up paired with a single aggregated key.
     /// If the public key carries an auxiliary key in the signature group,
@@ -131,6 +135,10 @@ impl<E: EngineBLS> SignatureAggregatorAssumingPoP<E> {
     /// Add an auxiliary public key for an existing `(message, publickey)` entry.
     /// Used by the verifier to aggregate a public key in the signature group
     /// for a message signed by an already aggregated public key.
+    ///
+    /// The caller assumes the responsibility of verifying the proof of
+    /// possession for the auxilary public key before adding it to the batch.
+    /// Failing to do so, breaks the security of the signature scheme.
     ///
     /// If the message already exists with the same public key, the auxiliary
     /// key is aggregated into the existing entry. If the message does not
@@ -159,7 +167,8 @@ impl<E: EngineBLS> SignatureAggregatorAssumingPoP<E> {
         }
     }
 
-    /// Aggregate BLS signatures assuming they have proofs-of-possession.
+    /// Aggregate BLS signatures assuming the signer's  proofs-of-possession
+    /// has been verified.
     ///
     /// Folds in every `(message, publickey)` pair carried by `signed`
     /// and adds its signature to our running total.  Public keys signing

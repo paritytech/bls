@@ -142,6 +142,10 @@ assert!(
 
 In order to sign a message, the library needs to hash the message as a point on the signature curve. While `BLSEngine` trait is agnostic about `MapToSignatureCurve` method, our implementation of BLS12-381 (`ZBLS`) and BLS12-377(`BLS377`) specifically uses Wahby and Boneh hash to curve method described in Section of 6.6.3 of https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/.
 
+## Experimental code
+
+Multiple flavors of BLS signature batching (bit field, delinearized batching, batching only for distinct messages), as well as Schnorr Proof of Possession, and Triple Nugget BLS with various sister curves have been implemented, purely for comparison and research purposes. This code resides in the [`src/experimental`] and [`experimental_curves`] folders behind the `--experimental` feature flag. It has not been audited and is not intended to be used in production.
+
 ## Security Warnings
 
 This library does not make any guarantees about constant-time operations, memory access patterns, or resistance to side-channel attacks.
