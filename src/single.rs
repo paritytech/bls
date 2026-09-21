@@ -151,8 +151,10 @@ impl<E: EngineBLS> SecretKeyVT<E> {
 /// methods of `SecretKeyVT`, so roughly
 /// `SecretKeyVT::from_repr(SecretKeyVT::read(reader) ?) ?.to_split(thread_rng())`.
 ///
-/// TODO: Is Pippenger’s algorithm, or another fast MSM algorithm,
-/// secure when used with key splitting?
+/// Note: current signing uses naive scalar multiplication (via `resplit`
+/// + `sign_once`). Adopting Pippenger's algorithm or another fast MSM
+/// method here would require verifying its side-channel properties
+/// against a split key first. Not currently used.
 
 /// Secret signing key including the side channel protections from
 /// key splitting.
@@ -397,10 +399,14 @@ where
     }
 }
 
-//TODO: when const generic becomes stable we get the size from the trait and return
-//      constant size array so it can be implemented as follows
-// impl <E: EngineBLS> SerializableToBytes<{ E::SIGNATURE_SERIALIZED_SIZE }> for Signature<E> {}
-// impl <E: EngineBLS> SerializableToBytes<{ PublicKey::E::PUBLICKEY_SERIALIZED_SIZE }> for PublicKey<E>  {}
+// Note: the ideal shape would parameterize `SerializableToBytes` by a
+// const-generic byte size sourced from `E`, so callers get a fixed-size
+// array back:
+//     impl<E: EngineBLS> SerializableToBytes<{ E::SIGNATURE_SERIALIZED_SIZE }> for Signature<E> {}
+//     impl<E: EngineBLS> SerializableToBytes<{ E::PUBLICKEY_SERIALIZED_SIZE }> for PublicKey<E> {}
+// This requires `generic_const_exprs`, which is still unstable, so we
+// use a runtime `SERIALIZED_BYTES_SIZE` constant instead. Revisit if/when
+// that feature stabilizes.
 impl<E: EngineBLS> SerializableToBytes for Signature<E> {
     const SERIALIZED_BYTES_SIZE: usize = E::SIGNATURE_SERIALIZED_SIZE;
 }
@@ -677,16 +683,15 @@ impl<E: EngineBLS> SignedMessage<E> {
         seed
     }
 
-    /* TODO: Switch to this whenever pairing upgrades to rand 0.5 or later
     /// VRF output converted into any `SeedableRng`.
     ///
     /// If you are not the signer then you must verify the VRF before calling this method.
     ///
-    /// We expect most users would prefer the less generic `VRFInOut::make_chacharng` method.
-    pub fn make_rng<R: SeedableRng>(&self, context: &[u8]) -> R {
+    /// Distinct contexts produce independent output streams. Most callers
+    /// should prefer the concrete `make_chacharng` helper below.
+    pub fn make_rng<R: rand::SeedableRng>(&self, context: &[u8]) -> R {
         R::from_seed(self.make_bytes::<R::Seed>(context))
     }
-    */
 
     /// VRF output converted into a `ChaChaRng`.
     ///
@@ -700,8 +705,7 @@ impl<E: EngineBLS> SignedMessage<E> {
     /// ["Ouroboros Praos: An adaptively-secure, semi-synchronous proof-of-stake blockchain"](https://eprint.iacr.org/2017/573.pdf)
     /// by Bernardo David, Peter Gazi, Aggelos Kiayias, and Alexander Russell.
     pub fn make_chacharng(&self, context: &[u8]) -> ChaCha8Rng {
-        let bytes = self.make_bytes::<[u8; 32]>(context);
-        ChaCha8Rng::from_seed(bytes)
+        self.make_rng(context)
     }
 }
 

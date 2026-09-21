@@ -83,7 +83,6 @@ use digest::FixedOutputReset;
 /// verifiers have only observed a subset of the proofs-of-possession,
 /// but this sounds complex or worse fragile.
 ///
-/// TODO: Implement gaussian elimination verification scheme.
 use nugget::PublicKeyInSignatureGroup;
 use single::PublicKey;
 
@@ -221,7 +220,6 @@ impl<'a, E: EngineBLS> Signed for &'a SignatureAggregatorAssumingPoP<E> {
         // We foresee verification via gaussian elimination being faster,
         // but requires affine keys or normalization.
         verify_with_distinct_messages(self, true)
-        // TODO: verify_with_gaussian_elimination(self)
     }
 }
 

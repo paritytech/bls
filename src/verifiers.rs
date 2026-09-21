@@ -182,9 +182,10 @@ fn normalize_publickeys<E: EngineBLS>(
 
 /// Batch-normalize message points together with the aggregate signature,
 /// returning the affine messages and the affine signature separately.
-// TODO: Assess if we could cache normalized message hashes anyplace
-// using interior mutability, but probably this does not work well
-// with our optimization of collecting messages with the same signer.
+//
+// Note: caching normalized message hashes via interior mutability was
+// considered but likely conflicts with the same-signer merging optimization,
+// so we recompute normalization each call.
 fn normalize_messages_and_signature<E: EngineBLS>(
     mut messages: Vec<SignatureProjective<E>>,
     signature: SignatureProjective<E>,
@@ -409,6 +410,10 @@ pub fn verify_using_aggregated_auxiliary_public_keys<
     verify_normalized::<S::E>(&merged_pks, &affine_msgs, affine_sig)
 }
 
+// A Gaussian-elimination verifier that reduces the pairing count to
+// `1 + min(msg_d, pk_d)` is sketched  as an open research idea,
+// albeit not implemented. `verify_with_distinct_messages` already achieves
+// this bound for the common case of distinct messages.
 /*
 /// Excessively optimized BLS signature verification
 ///
@@ -446,11 +451,8 @@ pub fn verify_using_aggregated_auxiliary_public_keys<
 /// We do not require such divisions because we do not solve any
 /// system of equations and do not need ones on the diagonal.
 ///
-/// TODO:
-/// We leave implementing this optimization to near future work
-/// because it benifits from public keys being affine or having
+/// This benifits from public keys being affine or having
 /// another hashable representation.
-///
 ///
 /// As a curiosity, we note one interesting but suboptimal algorithm
 /// that avoids small scalar multiplications when doing this:
@@ -484,6 +486,7 @@ fn verify_with_gaussian_elimination<S: Signed>(s: S) -> bool {
 }
 
 */
+
 
 #[cfg(test)]
 mod tests {
