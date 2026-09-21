@@ -2,7 +2,7 @@
 //!
 //! We simplify the code by using only the projective form as
 //! produced by algebraic operations, like aggregation, signing, and
-//! `SecretKey::into_public`, for both `Signature` and `Group`.
+//! `SecretKey::to_public`, for both `Signature` and `Group`.
 //!
 //! In principle, one benifits from an affine form in serialization,
 //! and pairings meaning signature verification, but the conversion
@@ -87,7 +87,7 @@ impl<E: EngineBLS> SecretKeyVT<E> {
 
     /// Convert into a `SecretKey` that supports side channel protections,
     /// but does not itself resplit the key.
-    pub fn into_split_dirty(&self) -> SecretKey<E> {
+    pub fn to_split_dirty(&self) -> SecretKey<E> {
         SecretKey {
             key: [self.0.clone(), E::Scalar::zero()],
             old_unsigned: E::SignatureGroup::zero(),
@@ -96,15 +96,15 @@ impl<E: EngineBLS> SecretKeyVT<E> {
     }
 
     /// Convert into a `SecretKey` applying side channel protections.
-    pub fn into_split<R: Rng>(&self, mut rng: R) -> SecretKey<E> {
-        let mut s = self.into_split_dirty();
+    pub fn to_split<R: Rng>(&self, mut rng: R) -> SecretKey<E> {
+        let mut s = self.to_split_dirty();
         s.resplit(&mut rng);
         s.init_point_mutation(rng);
         s
     }
 
     /// Derive our public key from our secret key
-    pub fn into_public(&self) -> PublicKey<E> {
+    pub fn to_public(&self) -> PublicKey<E> {
         PublicKey(<E::PublicKeyGroup as PrimeGroup>::generator() * self.0)
     }
 }
@@ -145,11 +145,11 @@ impl<E: EngineBLS> SecretKeyVT<E> {
 "##
 )]
 ///
-/// Right now, we serialize using `SecretKey::into_vartime` and
-/// `SecretKeyVT::write`, so `secret.into_vartime().write(writer)?`.
-/// We deserialize using the `read`, `from_repr`, and `into_split`
+/// Right now, we serialize using `SecretKey::to_vartime` and
+/// `SecretKeyVT::write`, so `secret.to_vartime().write(writer)?`.
+/// We deserialize using the `read`, `from_repr`, and `to_split`
 /// methods of `SecretKeyVT`, so roughly
-/// `SecretKeyVT::from_repr(SecretKeyVT::read(reader) ?) ?.into_split(thread_rng())`.
+/// `SecretKeyVT::from_repr(SecretKeyVT::read(reader) ?) ?.to_split(thread_rng())`.
 ///
 /// TODO: Is Pippenger’s algorithm, or another fast MSM algorithm,
 /// secure when used with key splitting?
@@ -198,7 +198,7 @@ where
     }
 
     pub fn from_seed(seed: &[u8]) -> Self {
-        SecretKeyVT::from_seed(seed).into_split_dirty()
+        SecretKeyVT::from_seed(seed).to_split_dirty()
     }
 }
 
@@ -219,7 +219,7 @@ impl<E: EngineBLS> SecretKey<E> {
 
     /// Create a representative usable for operations lacking
     /// side channel protections.  
-    pub fn into_vartime(&self) -> SecretKeyVT<E> {
+    pub fn to_vartime(&self) -> SecretKeyVT<E> {
         let mut secret = self.key[0].clone();
         secret += &self.key[1];
         SecretKeyVT(secret)
@@ -228,9 +228,9 @@ impl<E: EngineBLS> SecretKey<E> {
     /// Randomly adjust how we split our secret signing key.
     //
     // An initial call to this function after deserialization or
-    // `into_split_dirty` incurs a miniscule risk from side channel
+    // `to_split_dirty` incurs a miniscule risk from side channel
     // attacks, but then protects the highly vulnerable signing
-    // operations.  `into_split` itself handles this.
+    // operations.  `to_split` itself handles this.
     #[inline(never)]
     pub fn resplit<R: Rng>(&mut self, mut rng: R) {
         // resplit_with(|| Ok(self), rng).unwrap();
@@ -293,7 +293,7 @@ impl<E: EngineBLS> SecretKey<E> {
     ///
     /// We do not resplit for side channel protections here since
     /// this call should be rare.
-    pub fn into_public(&self) -> PublicKey<E> {
+    pub fn to_public(&self) -> PublicKey<E> {
         let generator = <E::PublicKeyGroup as PrimeGroup>::generator();
         let mut publickey = generator * self.key[0];
         publickey += generator * self.key[1];
@@ -316,34 +316,34 @@ where
         writer: W,
         compress: ark_serialize::Compress,
     ) -> Result<(), SerializationError> {
-        self.into_vartime().serialize_with_mode(writer, compress)
+        self.to_vartime().serialize_with_mode(writer, compress)
     }
 
     #[inline]
     fn serialize_compressed<W: Write>(&self, writer: W) -> Result<(), SerializationError> {
-        self.into_vartime().serialize_compressed(writer)?;
+        self.to_vartime().serialize_compressed(writer)?;
         Ok(())
     }
 
     #[inline]
     fn serialized_size(&self, compress: Compress) -> usize {
-        self.into_vartime().serialized_size(compress)
+        self.to_vartime().serialized_size(compress)
     }
 
     #[inline]
     fn serialize_uncompressed<W: Write>(&self, mut writer: W) -> Result<(), SerializationError> {
-        self.into_vartime().serialize_uncompressed(&mut writer)?;
+        self.to_vartime().serialize_uncompressed(&mut writer)?;
         Ok(())
     }
 
     #[inline]
     fn uncompressed_size(&self) -> usize {
-        self.into_vartime().uncompressed_size()
+        self.to_vartime().uncompressed_size()
     }
 
     // #[inline]
     // fn serialize_uncompressed_<W: Write>(&self, mut writer: W) -> Result<(), SerializationError> {
-    //     self.into_vartime().uncompressed_size().serialize_unchecked(&mut writer)?;
+    //     self.to_vartime().uncompressed_size().serialize_unchecked(&mut writer)?;
     //     Ok(())
     // }
 }
@@ -372,28 +372,28 @@ where
         let secret_key_vt = <SecretKeyVT<E> as CanonicalDeserialize>::deserialize_with_mode(
             reader, compress, validate,
         )?;
-        Ok(secret_key_vt.into_split_dirty())
+        Ok(secret_key_vt.to_split_dirty())
     }
 
     #[inline]
     fn deserialize_compressed<R: Read>(reader: R) -> Result<Self, SerializationError> {
         let secret_key_vt =
             <SecretKeyVT<E> as CanonicalDeserialize>::deserialize_compressed(reader)?;
-        Ok(secret_key_vt.into_split_dirty())
+        Ok(secret_key_vt.to_split_dirty())
     }
 
     #[inline]
     fn deserialize_uncompressed<R: Read>(mut reader: R) -> Result<Self, SerializationError> {
         let secret_key_vt =
             <SecretKeyVT<E> as CanonicalDeserialize>::deserialize_uncompressed(&mut reader)?;
-        Ok(secret_key_vt.into_split_dirty())
+        Ok(secret_key_vt.to_split_dirty())
     }
 
     #[inline]
     fn deserialize_uncompressed_unchecked<R: Read>(reader: R) -> Result<Self, SerializationError> {
         let secret_key_vt =
             <SecretKeyVT<E> as CanonicalDeserialize>::deserialize_uncompressed_unchecked(reader)?;
-        Ok(secret_key_vt.into_split_dirty())
+        Ok(secret_key_vt.to_split_dirty())
     }
 }
 
@@ -489,15 +489,15 @@ impl<E: EngineBLS> KeypairVT<E> {
     /// Generate a `Keypair`
     pub fn generate<R: Rng>(rng: R) -> Self {
         let secret = SecretKeyVT::generate(rng);
-        let public = secret.into_public();
+        let public = secret.to_public();
         KeypairVT { secret, public }
     }
 }
 
 impl<E: EngineBLS> KeypairVT<E> {
     /// Convert into a `SecretKey` applying side channel protections.
-    pub fn into_split<R: Rng>(&self, rng: R) -> Keypair<E> {
-        let secret = self.secret.into_split(rng);
+    pub fn to_split<R: Rng>(&self, rng: R) -> Keypair<E> {
+        let secret = self.secret.to_split(rng);
         let public = self.public;
         Keypair { secret, public }
     }
@@ -543,7 +543,7 @@ impl<E: EngineBLS> Keypair<E> {
     /// Generate a `Keypair`
     pub fn generate<R: Rng>(rng: R) -> Self {
         let secret = SecretKey::generate(rng);
-        let public = secret.into_public();
+        let public = secret.to_public();
         Keypair { secret, public }
     }
 }
@@ -551,8 +551,8 @@ impl<E: EngineBLS> Keypair<E> {
 impl<E: EngineBLS> Keypair<E> {
     /// Create a representative usable for operations lacking
     /// side channel protections.  
-    pub fn into_vartime(&self) -> KeypairVT<E> {
-        let secret = self.secret.into_vartime();
+    pub fn to_vartime(&self) -> KeypairVT<E> {
+        let secret = self.secret.to_vartime();
         let public = self.public;
         KeypairVT { secret, public }
     }
@@ -772,7 +772,7 @@ mod tests {
 
         let deserialized_secret_key =
             SecretKey::<UsualBLS<E, P>>::from_bytes(&serialized_secret_key).unwrap();
-        let reconstructed_public_key = deserialized_secret_key.into_public();
+        let reconstructed_public_key = deserialized_secret_key.to_public();
         assert!(sig.verify(&good_message, &reconstructed_public_key));
     }
 
@@ -818,21 +818,21 @@ mod tests {
         let good_sig = bls_engine_serialization_test::<UsualBLS<E, P>, E, P>(good_sig0);
         assert!(good_sig.verify_slow());
 
-        let keypair_vt = keypair.into_vartime();
-        assert!(keypair_vt.secret.0 == keypair_vt.into_split(thread_rng()).into_vartime().secret.0);
+        let keypair_vt = keypair.to_vartime();
+        assert!(keypair_vt.secret.0 == keypair_vt.to_split(thread_rng()).to_vartime().secret.0);
         assert!(good_sig == keypair.signed_message(&good));
         assert!(good_sig == keypair_vt.signed_message(&good));
 
         let bad = Message::new(b"ctx", b"wrong message");
         let bad_sig0 = keypair.signed_message(&bad);
         let bad_sig = bls_engine_serialization_test::<UsualBLS<E, P>, E, P>(bad_sig0);
-        assert!(bad_sig == keypair.into_vartime().signed_message(&bad));
+        assert!(bad_sig == keypair.to_vartime().signed_message(&bad));
 
         assert!(bad_sig.verify());
 
         let another = Message::new(b"ctx", b"another message");
         let another_sig = keypair.signed_message(&another);
-        assert!(another_sig == keypair.into_vartime().signed_message(&another));
+        assert!(another_sig == keypair.to_vartime().signed_message(&another));
         assert!(another_sig.verify());
 
         assert!(

@@ -65,7 +65,7 @@ pub trait ChaumPedersenVerifier<
         #[cfg(feature = "benchmark")]
         let start = Instant::now();
         let A_check_point = <S as PrimeGroup>::generator() * signature_as_scalars_of_sister_group.1
-            + self.into_public_key_in_sister_group().0 * signature_as_scalars_of_sister_group.0;
+            + self.to_public_key_in_sister_group().0 * signature_as_scalars_of_sister_group.0;
         #[cfg(feature = "benchmark")]
         println!(
             "[Naive] A_check_point (2 scalar muls + add): {:?}",
@@ -89,7 +89,7 @@ pub trait ChaumPedersenVerifier<
         let message_point_as_bytes =
             E::signature_point_to_byte(&message_as_point_on_signature_curve);
         let public_key_in_signature_group_as_bytes =
-            E::signature_point_to_byte(&self.into_public_key_in_signature_group().0);
+            E::signature_point_to_byte(&self.to_public_key_in_signature_group().0);
 
         let resulting_proof_basis = [
             message_point_as_bytes,
@@ -124,7 +124,7 @@ pub trait ChaumPedersenVerifier<
         let signature_as_scalars_of_sister_group: (S::ScalarField, S::ScalarField) =
             (signature_proof.1 .0, signature_proof.1 .1);
         let generator = <S as PrimeGroup>::generator();
-        let pubkey = self.into_public_key_in_sister_group().0;
+        let pubkey = self.to_public_key_in_sister_group().0;
 
         let message_as_point_on_signature_curve = message.hash_to_signature_curve::<E>();
         let message_point_as_bytes =
@@ -166,7 +166,7 @@ pub trait ChaumPedersenVerifier<
 
         let signature_point_as_bytes = E::signature_point_to_byte(&signature_proof.0);
         let public_key_in_signature_group_as_bytes =
-            E::signature_point_to_byte(&self.into_public_key_in_signature_group().0);
+            E::signature_point_to_byte(&self.to_public_key_in_signature_group().0);
 
         let resulting_proof_basis = [
             message_point_as_bytes,
@@ -203,7 +203,7 @@ pub trait ChaumPedersenVerifier<
         let A_check_point = S::msm(
             (vec![
                 <S as PrimeGroup>::generator().into_affine(),
-                self.into_public_key_in_sister_group().0.into_affine(),
+                self.to_public_key_in_sister_group().0.into_affine(),
             ])
             .as_slice(),
             (vec![
@@ -231,7 +231,7 @@ pub trait ChaumPedersenVerifier<
         let message_point_as_bytes =
             E::signature_point_to_byte(&message_as_point_on_signature_curve);
         let public_key_in_signature_group_as_bytes =
-            E::signature_point_to_byte(&self.into_public_key_in_signature_group().0);
+            E::signature_point_to_byte(&self.to_public_key_in_signature_group().0);
 
         let resulting_proof_basis = [
             message_point_as_bytes,
@@ -282,7 +282,7 @@ where
         let signature_point_as_bytes = E::signature_point_to_byte(&signature_point);
         let message_point_as_bytes = E::signature_point_to_byte(&message_point);
         let public_key_in_signature_group_as_bytes = E::signature_point_to_byte(
-            &NuggetBLS::<E, S>::into_public_key_in_signature_group(self).0,
+            &NuggetBLS::<E, S>::to_public_key_in_signature_group(self).0,
         );
 
         let mut k = <SecretKeyVT<E> as ChaumPedersenSigner<E, S, H>>::generate_witness_scaler(
@@ -364,7 +364,7 @@ where
         bls_signature: E::SignatureGroup,
     ) -> DLEQProof<E> {
         <SecretKeyVT<E> as ChaumPedersenSigner<E, S, H>>::generate_dleq_proof(
-            &mut self.into_vartime(),
+            &mut self.to_vartime(),
             message,
             bls_signature,
         )
@@ -408,7 +408,7 @@ mod tests {
         );
 
         let publickey: NuggetDoublePublicKey<EB> =
-            DoubleNuggetBLS::<EB>::into_nugget_double_public_key(&keypair);
+            DoubleNuggetBLS::<EB>::to_nugget_double_public_key(&keypair);
 
         assert!(ChaumPedersenVerifier::<
             EB,
@@ -435,7 +435,7 @@ mod tests {
         ));
 
         let publickey_glv: NuggetDoublePublicKeyGLV<EB, ark_bls12_381::g1::Config> =
-            DoubleNuggetBLSGLV::<EB, ark_bls12_381::g1::Config>::into_nugget_double_public_key(
+            DoubleNuggetBLSGLV::<EB, ark_bls12_381::g1::Config>::to_nugget_double_public_key(
                 &keypair,
             );
 
@@ -466,7 +466,7 @@ mod tests {
         let good_sig = <Keypair<EB> as NuggetBLS<EB, S>>::sign(&mut keypair, &message);
 
         let publickey: NuggetTriplePublicKey<EB, S> =
-            TripleNuggetBLS::<EB, S>::into_nugget_triple_public_key(&keypair);
+            TripleNuggetBLS::<EB, S>::to_nugget_triple_public_key(&keypair);
 
         #[cfg(feature = "benchmark")]
         let start = Instant::now();
@@ -506,7 +506,7 @@ mod tests {
         >>::sign(&mut keypair, &message);
 
         let publickey_glv: NuggetDoublePublicKeyGLV<EB, ark_bls12_381::g1::Config> =
-            DoubleNuggetBLSGLV::<EB, ark_bls12_381::g1::Config>::into_nugget_double_public_key(
+            DoubleNuggetBLSGLV::<EB, ark_bls12_381::g1::Config>::to_nugget_double_public_key(
                 &keypair,
             );
 

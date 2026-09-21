@@ -121,7 +121,7 @@ let mut keypairs: Vec<_> = (0..3)
     .collect();
 let pub_keys_in_sig_grp: Vec<PublicKeyInSignatureGroup<TinyBLS377>> = keypairs
     .iter()
-    .map(|k| DoubleNuggetBLS::<TinyBLS377>::into_nugget_double_public_key(k).into_public_key_in_signature_group())
+    .map(|k| DoubleNuggetBLS::<TinyBLS377>::to_nugget_double_public_key(k).to_public_key_in_signature_group())
     .collect();
 
 let mut verifier_aggregator = SignatureAggregatorAssumingPoP::<TinyBLS377>::new();

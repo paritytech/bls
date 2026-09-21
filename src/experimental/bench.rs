@@ -52,7 +52,7 @@ use crate::PublicKeyInSignatureGroup;
 // fn test_many_tiny_aggregate_and_verify_in_g2(b: &mut Bencher) {
 //     let message = Message::new(b"ctx",b"test message");
 //     let mut keypairs = generate_many_keypairs(NO_OF_MULTI_SIG_SIGNERS);
-// let mut pub_keys_in_sig_grp : Vec<PublicKeyInSignatureGroup<TinyBLS377>> = keypairs.iter().map(|k| k.into_public_key_in_signature_group()).collect();
+// let mut pub_keys_in_sig_grp : Vec<PublicKeyInSignatureGroup<TinyBLS377>> = keypairs.iter().map(|k| k.to_public_key_in_signature_group()).collect();
 
 // let mut aggregated_public_key = PublicKey::<TinyBLS377>(<TinyBLS377 as EngineBLS>::PublicKeyGroup::zero());
 // let mut aggregator = SignatureAggregatorAssumingPoP::<TinyBLS377>::new();
@@ -81,7 +81,7 @@ use crate::PublicKeyInSignatureGroup;
 // #[bench]
 // fn test_many_tiny_aggregate_only_no_verify(b: &mut Bencher) {
 //     let mut keypairs = generate_many_keypairs(NO_OF_MULTI_SIG_SIGNERS);
-// 	let mut pub_keys_in_sig_grp : Vec<PublicKeyInSignatureGroup<TinyBLS377>> = keypairs.iter().map(|k| k.into_public_key_in_signature_group()).collect();
+// 	let mut pub_keys_in_sig_grp : Vec<PublicKeyInSignatureGroup<TinyBLS377>> = keypairs.iter().map(|k| k.to_public_key_in_signature_group()).collect();
 //     let message = Message::new(b"ctx",b"test message");
 
 //     b.iter(|| {
@@ -100,7 +100,7 @@ use crate::PublicKeyInSignatureGroup;
 // fn test_many_tiny_aggregate_and_verify_in_g1(b: &mut Bencher) {
 //     let message = Message::new(b"ctx",b"test message");
 //     let mut keypairs = generate_many_keypairs(NO_OF_MULTI_SIG_SIGNERS);
-//     let mut pub_keys_in_sig_grp : Vec<PublicKeyInSignatureGroup<TinyBLS377>> = keypairs.iter().map(|k| k.into_public_key_in_signature_group()).collect();
+//     let mut pub_keys_in_sig_grp : Vec<PublicKeyInSignatureGroup<TinyBLS377>> = keypairs.iter().map(|k| k.to_public_key_in_signature_group()).collect();
 
 //     let mut aggregator = SignatureAggregatorAssumingPoP::<TinyBLS377>::new();
 // let mut aggregated_public_key = PublicKey::<TinyBLS377>(<TinyBLS377 as EngineBLS>::PublicKeyGroup::zero());
@@ -150,7 +150,7 @@ use crate::PublicKeyInSignatureGroup;
 //         TinyBLS381,
 //         <TinyBLS381 as EngineBLS>::SignatureGroup,
 //     >>::sign(&mut keypair, &message);
-//     let double_nugget_public = keypair.into_nugget_double_public_key();
+//     let double_nugget_public = keypair.to_nugget_double_public_key();
 
 //     b.iter(|| {
 //         for i in 1..NO_OF_MULTI_SIG_SIGNERS {
@@ -175,7 +175,7 @@ use crate::PublicKeyInSignatureGroup;
 //         ark_ed_by_bls12_381::EdwardsProjective,
 //     >>::sign(&mut keypair, &message);
 //     let triple_nugget_public_key: NuggetTriplePublicKey<_, ark_ed_by_bls12_381::EdwardsProjective> =
-//         keypair.into_nugget_triple_public_key();
+//         keypair.to_nugget_triple_public_key();
 
 //     b.iter(|| {
 //         for i in 1..NO_OF_MULTI_SIG_SIGNERS {
@@ -345,7 +345,7 @@ use crate::PublicKeyInSignatureGroup;
 
 //         let signed_message = DoubleSignedMessage {
 //             message: message,
-//             publickey: keypair.into_nugget_double_public_key(),
+//             publickey: keypair.to_nugget_double_public_key(),
 //             signature: good_sig0,
 //             _phantom: PhantomData,
 //         };
@@ -370,7 +370,7 @@ fn test_bls_verify_many_signatures_chaum_pedersen_in_weierstrass_sister_group_st
         );
 
     let triple_nugget_public_key: NuggetTriplePublicKey<_, ark_sw_by_bls12_381::SWProjective> =
-        keypair.into_nugget_triple_public_key();
+        keypair.to_nugget_triple_public_key();
 
     b.iter(|| {
         for i in 0..NO_OF_MULTI_SIG_SIGNERS {
@@ -403,7 +403,7 @@ fn test_bls_verify_many_signatures_chaum_pedersen_in_weierstrass_sister_group_na
         );
 
     let triple_nugget_public_key: NuggetTriplePublicKey<_, ark_sw_by_bls12_381::SWProjective> =
-        keypair.into_nugget_triple_public_key();
+        keypair.to_nugget_triple_public_key();
 
     b.iter(|| {
         for i in 0..NO_OF_MULTI_SIG_SIGNERS {
@@ -434,7 +434,7 @@ fn test_verify_cp_signature_naive(b: &mut Bencher) {
     );
 
     let publickey: NuggetDoublePublicKey<EB> =
-        DoubleNuggetBLS::<EB>::into_nugget_double_public_key(&keypair);
+        DoubleNuggetBLS::<EB>::to_nugget_double_public_key(&keypair);
 
     //we chaum pederesen verification which is faster
     b.iter(|| {
@@ -462,7 +462,7 @@ fn test_verify_cp_signature_strauss_shamir_without_glv(b: &mut Bencher) {
     );
 
     let publickey: NuggetDoublePublicKey<EB> =
-        DoubleNuggetBLS::<EB>::into_nugget_double_public_key(&keypair);
+        DoubleNuggetBLS::<EB>::to_nugget_double_public_key(&keypair);
 
     //we chaum pederesen verification which is faster
     b.iter(|| {
@@ -490,7 +490,7 @@ fn test_verify_cp_signature_ark_msm(b: &mut Bencher) {
     );
 
     let publickey: NuggetDoublePublicKey<EB> =
-        DoubleNuggetBLS::<EB>::into_nugget_double_public_key(&keypair);
+        DoubleNuggetBLS::<EB>::to_nugget_double_public_key(&keypair);
 
     //we chaum pederesen verification which is faster
     b.iter(|| {
@@ -517,7 +517,7 @@ fn test_verify_cp_signature_strauss_shamir_with_glv(b: &mut Bencher) {
     );
 
     let publickey: NuggetDoublePublicKeyGLV<EB, ark_bls12_381::g1::Config> =
-        DoubleNuggetBLSGLV::<EB, ark_bls12_381::g1::Config>::into_nugget_double_public_key(
+        DoubleNuggetBLSGLV::<EB, ark_bls12_381::g1::Config>::to_nugget_double_public_key(
             &keypair,
         );
 
@@ -546,7 +546,7 @@ fn test_verify_signature_with_pairing(b: &mut Bencher) {
     );
 
     let publickey: NuggetDoublePublicKeyGLV<EB, ark_bls12_381::g1::Config> =
-        DoubleNuggetBLSGLV::<EB, ark_bls12_381::g1::Config>::into_nugget_double_public_key(
+        DoubleNuggetBLSGLV::<EB, ark_bls12_381::g1::Config>::to_nugget_double_public_key(
             &keypair,
         );
 
@@ -563,7 +563,7 @@ fn test_verify_signature_with_pairing(b: &mut Bencher) {
 // fn test_pairing(b: &mut Bencher) {
 //     let mut keypair1 = Keypair::<TinyBLS377>::generate(thread_rng());
 
-// let point_1 = keypair1.into_public_key_in_signature_group().0;
+// let point_1 = keypair1.to_public_key_in_signature_group().0;
 // let point_2 = keypair1.public.0;
 
 // b.iter(||
@@ -577,9 +577,9 @@ fn test_verify_signature_with_pairing(b: &mut Bencher) {
 // fn test_scalar_multiplication(b: &mut Bencher) {
 //     let mut keypair1 = Keypair::<TinyBLS377>::generate(thread_rng());
 
-// let point_1 = keypair1.into_public_key_in_signature_group().0;
+// let point_1 = keypair1.to_public_key_in_signature_group().0;
 // let point_2 = keypair1.public.0;
-// let scalar = keypair1.secret.into_vartime().0;
+// let scalar = keypair1.secret.to_vartime().0;
 
 // b.iter(||
 //        for i in 0..NO_OF_MULTI_SIG_SIGNERS {
@@ -600,7 +600,7 @@ fn test_verify_signature_with_pairing(b: &mut Bencher) {
 //     );
 
 //     let publickey: NuggetDoublePublicKeyGLV<EB, ark_bls12_381::g1::Config> =
-//         keypair.into_nugget_double_public_key();
+//         keypair.to_nugget_double_public_key();
 
 //     // Verify with GLV precomputed 256-element table
 //     b.iter(|| {

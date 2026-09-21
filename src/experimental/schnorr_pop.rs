@@ -93,7 +93,7 @@ impl<E: EngineBLS, H: FixedOutputReset + Default + Clone + 'static>
         >>::new(&[]);
         let k = hasher.hash_to_field::<1>(proof_basis.as_slice())[0];
 
-        let s = (k * self.secret.into_vartime().0) + r;
+        let s = (k * self.secret.to_vartime().0) + r;
 
         ::zeroize::Zeroize::zeroize(&mut r); //clear secret witness from memory
 

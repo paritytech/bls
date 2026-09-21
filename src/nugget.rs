@@ -43,11 +43,11 @@ pub trait NuggetPublicKey<
     S: CurveGroup + PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes,
 >
 {
-    fn into_public_key_in_signature_group(&self) -> PublicKeyInSignatureGroup<E>;
+    fn to_public_key_in_signature_group(&self) -> PublicKeyInSignatureGroup<E>;
 
-    fn into_bls_public_key(&self) -> PublicKey<E>;
+    fn to_bls_public_key(&self) -> PublicKey<E>;
 
-    fn into_public_key_in_sister_group(&self) -> PublicKeyInSisterGroup<S>;
+    fn to_public_key_in_sister_group(&self) -> PublicKeyInSisterGroup<S>;
 
     fn straus_sister_group_precomputed_points(&self) -> &[S];
 
@@ -58,9 +58,9 @@ pub trait NuggetBLS<E: EngineBLS, S: CurveGroup>
 where
     S: PrimeGroup<ScalarField = E::Scalar>,
 {
-    fn into_public_key_in_signature_group(&self) -> PublicKeyInSignatureGroup<E>;
+    fn to_public_key_in_signature_group(&self) -> PublicKeyInSignatureGroup<E>;
 
-    fn into_public_key_in_sister_group(&self) -> PublicKeyInSisterGroup<S>;
+    fn to_public_key_in_sister_group(&self) -> PublicKeyInSisterGroup<S>;
 
     /// Return a triple public object containing public keys both in G1 and G2 and S
     fn sign(&mut self, message: &Message) -> NuggetSignature<E>;
@@ -70,13 +70,13 @@ impl<E: EngineBLS, S: CurveGroup> NuggetBLS<E, S> for SecretKeyVT<E>
 where
     S: PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes,
 {
-    fn into_public_key_in_signature_group(&self) -> PublicKeyInSignatureGroup<E> {
+    fn to_public_key_in_signature_group(&self) -> PublicKeyInSignatureGroup<E> {
         PublicKeyInSignatureGroup(
             <E::SignatureGroup as CurveGroup>::Affine::generator().into_group() * self.0,
         )
     }
 
-    fn into_public_key_in_sister_group(&self) -> PublicKeyInSisterGroup<S> {
+    fn to_public_key_in_sister_group(&self) -> PublicKeyInSisterGroup<S> {
         PublicKeyInSisterGroup(S::Affine::generator().into_group() * self.0)
     }
 
@@ -88,17 +88,17 @@ where
 
 /// Side-channel-protected variant: signing goes through the
 /// `ChaumPedersenSigner` impl for `SecretKey`, so the resplit happens
-/// on the split key (no `into_vartime` conversion is done here).
+/// on the split key (no `to_vartime` conversion is done here).
 impl<E: EngineBLS, S: CurveGroup> NuggetBLS<E, S> for SecretKey<E>
 where
     S: PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes,
 {
-    fn into_public_key_in_signature_group(&self) -> PublicKeyInSignatureGroup<E> {
-        NuggetBLS::<E, S>::into_public_key_in_signature_group(&self.into_vartime())
+    fn to_public_key_in_signature_group(&self) -> PublicKeyInSignatureGroup<E> {
+        NuggetBLS::<E, S>::to_public_key_in_signature_group(&self.to_vartime())
     }
 
-    fn into_public_key_in_sister_group(&self) -> PublicKeyInSisterGroup<S> {
-        self.into_vartime().into_public_key_in_sister_group()
+    fn to_public_key_in_sister_group(&self) -> PublicKeyInSisterGroup<S> {
+        self.to_vartime().to_public_key_in_sister_group()
     }
 
     fn sign(&mut self, message: &Message) -> NuggetSignature<E> {
@@ -110,12 +110,12 @@ impl<E: EngineBLS, S: CurveGroup> NuggetBLS<E, S> for KeypairVT<E>
 where
     S: PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes,
 {
-    fn into_public_key_in_signature_group(&self) -> PublicKeyInSignatureGroup<E> {
-        NuggetBLS::<E, S>::into_public_key_in_signature_group(&self.secret)
+    fn to_public_key_in_signature_group(&self) -> PublicKeyInSignatureGroup<E> {
+        NuggetBLS::<E, S>::to_public_key_in_signature_group(&self.secret)
     }
 
-    fn into_public_key_in_sister_group(&self) -> PublicKeyInSisterGroup<S> {
-        self.secret.into_public_key_in_sister_group()
+    fn to_public_key_in_sister_group(&self) -> PublicKeyInSisterGroup<S> {
+        self.secret.to_public_key_in_sister_group()
     }
 
     /// Sign a message using a Seedabale RNG created from a seed derived from the message and key
@@ -128,12 +128,12 @@ impl<E: EngineBLS, S: CurveGroup> NuggetBLS<E, S> for Keypair<E>
 where
     S: PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes,
 {
-    fn into_public_key_in_signature_group(&self) -> PublicKeyInSignatureGroup<E> {
-        NuggetBLS::<E, S>::into_public_key_in_signature_group(&self.secret)
+    fn to_public_key_in_signature_group(&self) -> PublicKeyInSignatureGroup<E> {
+        NuggetBLS::<E, S>::to_public_key_in_signature_group(&self.secret)
     }
 
-    fn into_public_key_in_sister_group(&self) -> PublicKeyInSisterGroup<S> {
-        NuggetBLS::<E, S>::into_public_key_in_sister_group(&self.secret)
+    fn to_public_key_in_sister_group(&self) -> PublicKeyInSisterGroup<S> {
+        NuggetBLS::<E, S>::to_public_key_in_sister_group(&self.secret)
     }
 
     /// Sign a message using a Seedabale RNG created from a seed derived from the message and key
@@ -206,16 +206,16 @@ where
         self.message.eq(&other.message)
             && self
                 .publickey
-                .into_bls_public_key()
-                .eq(&other.publickey.into_bls_public_key())
+                .to_bls_public_key()
+                .eq(&other.publickey.to_bls_public_key())
             && self
                 .publickey
-                .into_public_key_in_signature_group()
-                .eq(&other.publickey.into_public_key_in_signature_group())
+                .to_public_key_in_signature_group()
+                .eq(&other.publickey.to_public_key_in_signature_group())
             && self
                 .publickey
-                .into_public_key_in_sister_group()
-                .eq(&other.publickey.into_public_key_in_sister_group())
+                .to_public_key_in_sister_group()
+                .eq(&other.publickey.to_public_key_in_sister_group())
             && self.signature.0.eq(&other.signature.0)
     }
 }
@@ -238,7 +238,7 @@ where
     fn messages_and_publickeys(
         self,
     ) -> impl Iterator<Item = (Message, PublicKey<E>)> + ExactSizeIterator {
-        once((self.message.clone(), self.publickey.into_bls_public_key()))
+        once((self.message.clone(), self.publickey.to_bls_public_key()))
     }
 
     fn signature(&self) -> Signature<E> {

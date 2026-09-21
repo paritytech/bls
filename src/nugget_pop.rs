@@ -230,7 +230,7 @@ mod tests {
         assert!(
             ProofOfPossession::<TinyBLS381, Sha256, NuggetDoublePublicKey::<TinyBLS381>>::verify(
                 &proof_pair,
-                &DoubleNuggetBLS::into_nugget_double_public_key(&keypair)
+                &DoubleNuggetBLS::to_nugget_double_public_key(&keypair)
             ),
             "valid pok does not verify"
         );
@@ -268,7 +268,7 @@ mod tests {
         assert!(
             !ProofOfPossession::<TinyBLS381, Sha256, NuggetDoublePublicKey::<TinyBLS381>>::verify(
                 &proof_pair,
-                &DoubleNuggetBLS::into_nugget_double_public_key(&keypair_bad)
+                &DoubleNuggetBLS::to_nugget_double_public_key(&keypair_bad)
             ),
             "invalid pok of unrelated public key should not verify"
         );
@@ -311,7 +311,7 @@ mod tests {
         assert!(
             ProofOfPossession::<TinyBLS381, Sha256, NuggetDoublePublicKey::<TinyBLS381>>::verify(
                 &deserialized_proof,
-                &DoubleNuggetBLS::into_nugget_double_public_key(&keypair)
+                &DoubleNuggetBLS::to_nugget_double_public_key(&keypair)
             ),
             "valid pok does not verify"
         );
@@ -346,7 +346,7 @@ mod tests {
                 <TinyBLS381 as EngineBLS>::PublicKeyGroup::zero(),
             ),
             secret: SecretKeyVT::<TinyBLS381>(<TinyBLS381 as EngineBLS>::Scalar::zero())
-                .into_split(thread_rng()),
+                .to_split(thread_rng()),
         };
         let pop = <Keypair<TinyBLS381> as ProofOfPossessionGenerator<
             TinyBLS381,
@@ -354,7 +354,7 @@ mod tests {
             NuggetDoublePublicKey<TinyBLS381>,
             NuggetBLSPoP<TinyBLS381>,
         >>::generate_pok(&mut keypair);
-        let double_pk = DoubleNuggetBLS::into_nugget_double_public_key(&keypair);
+        let double_pk = DoubleNuggetBLS::to_nugget_double_public_key(&keypair);
         assert!(!<NuggetBLSPoP<TinyBLS381> as ProofOfPossession<
             TinyBLS381,
             Sha256,

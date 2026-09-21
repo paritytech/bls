@@ -405,7 +405,7 @@ mod tests {
                 nugget::NuggetBLS::<
                     TinyBLS<Bls12_377, ark_bls12_377::Config>,
                     <TinyBLS<Bls12_377, ark_bls12_377::Config> as EngineBLS>::SignatureGroup,
-                >::into_public_key_in_signature_group(k)
+                >::to_public_key_in_signature_group(k)
             })
             .collect();
 
@@ -517,7 +517,7 @@ mod tests {
                 nugget::NuggetBLS::<
                     TinyBLS<Bls12_377, ark_bls12_377::Config>,
                     <TinyBLS<Bls12_377, ark_bls12_377::Config> as EngineBLS>::SignatureGroup,
-                >::into_public_key_in_signature_group(k)
+                >::to_public_key_in_signature_group(k)
             })
             .collect();
 
@@ -605,7 +605,7 @@ mod tests {
                 nugget::NuggetBLS::<
                     TinyBLS<Bls12_377, ark_bls12_377::Config>,
                     <TinyBLS<Bls12_377, ark_bls12_377::Config> as EngineBLS>::SignatureGroup,
-                >::into_public_key_in_signature_group(k)
+                >::to_public_key_in_signature_group(k)
             })
             .collect();
 
@@ -686,7 +686,7 @@ mod tests {
                     let aux = nugget::NuggetBLS::<
                         TinyBLS<Bls12_377, ark_bls12_377::Config>,
                         <TinyBLS<Bls12_377, ark_bls12_377::Config> as EngineBLS>::SignatureGroup,
-                    >::into_public_key_in_signature_group(k);
+                    >::to_public_key_in_signature_group(k);
                     (k.public, aux)
                 })
                 .collect();
@@ -820,7 +820,7 @@ mod tests {
                     let aux = nugget::NuggetBLS::<
                         TinyBLS<Bls12_377, ark_bls12_377::Config>,
                         <TinyBLS<Bls12_377, ark_bls12_377::Config> as EngineBLS>::SignatureGroup,
-                    >::into_public_key_in_signature_group(k);
+                    >::to_public_key_in_signature_group(k);
                     (k.public, aux)
                 })
                 .collect();

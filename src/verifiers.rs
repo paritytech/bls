@@ -589,7 +589,7 @@ mod tests {
         let message = Message::new(b"ctx", b"test message");
         let mut keypair = Keypair::<EB>::generate(StdRng::from_seed([0u8; 32]));
         let signed = keypair.signed_message(&message);
-        let sk = keypair.into_vartime().secret.0;
+        let sk = keypair.to_vartime().secret.0;
 
         let q_g1: <EB as EngineBLS>::PublicKeyGroup = cofactor_subgroup_g1().into();
         let bad_pk = q_g1 * sk + signed.publickey.0;
@@ -615,7 +615,7 @@ mod tests {
         let message = Message::new(b"ctx", b"test message");
         let mut keypair = Keypair::<EB>::generate(StdRng::from_seed([0u8; 32]));
         let signed = keypair.signed_message(&message);
-        let sk = keypair.into_vartime().secret.0;
+        let sk = keypair.to_vartime().secret.0;
 
         let q_g2: <EB as EngineBLS>::SignatureGroup = cofactor_subgroup_g2().into();
         let bad_sig = q_g2 * sk + signed.signature.0;

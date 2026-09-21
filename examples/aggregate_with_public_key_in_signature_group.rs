@@ -27,7 +27,7 @@ fn main() {
             .collect();
         let pub_keys_in_sig_grp: Vec<PublicKeyInSignatureGroup<TinyBLS377>> = keypairs
             .iter()
-            .map(|k| NuggetBLS::<_, <EB as EngineBLS>::SignatureGroup>::into_public_key_in_signature_group(k))
+            .map(|k| NuggetBLS::<_, <EB as EngineBLS>::SignatureGroup>::to_public_key_in_signature_group(k))
             .collect();
         let mut verifier_aggregator = SignatureAggregatorAssumingPoP::<TinyBLS377>::new();
 
