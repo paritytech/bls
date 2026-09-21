@@ -20,7 +20,6 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use digest::FixedOutputReset;
 use sha2::Sha256;
 
-use crate::broken_derives;
 use crate::chaum_pedersen_signature::DLEQProof;
 use crate::chaum_pedersen_signature::{ChaumPedersenSigner, ChaumPedersenVerifier};
 use crate::dual_scalar_mul::DualScalarMultiplication;
@@ -32,7 +31,7 @@ use crate::{EngineBLS, Message, Signed};
 /// have the same logarithm as the public key in the public key group
 #[derive(Debug, CanonicalSerialize, CanonicalDeserialize)]
 pub struct PublicKeyInSignatureGroup<E: EngineBLS>(pub E::SignatureGroup);
-broken_derives!(PublicKeyInSignatureGroup); // Actually the derive works for this one, not sure why.
+derive_with_bound!(PublicKeyInSignatureGroup);
 
 /// Wrapper for a point in the third curve sister group which is supposed to
 /// have the same logarithm as the public key in the public key group

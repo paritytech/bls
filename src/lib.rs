@@ -104,6 +104,33 @@ extern crate sha3;
 
 extern crate alloc;
 
+/// Emit `Clone`, `Copy`, `PartialEq`, and `Eq` for a tuple wrapper over an
+/// `E: EngineBLS` parameter. Needed because Rust's built-in `#[derive]`
+/// synthesises `where` clauses (e.g. `E: Clone`) that do not hold for the
+/// engine type itself, so the derived impls fail to compile. This helper
+/// hand-writes the impls with the correct `E: EngineBLS` bound. Internal
+/// to the crate.
+#[macro_export]
+#[doc(hidden)]
+macro_rules! derive_with_bound {
+    ($wrapper:tt) => {
+        impl<E: EngineBLS> Clone for $wrapper<E> {
+            fn clone(&self) -> Self {
+                $wrapper(self.0)
+            }
+        }
+        impl<E: EngineBLS> Copy for $wrapper<E> {}
+
+        impl<E: EngineBLS> PartialEq<Self> for $wrapper<E> {
+            fn eq(&self, other: &Self) -> bool {
+                self.0.eq(&other.0)
+            }
+        }
+
+        impl<E: EngineBLS> Eq for $wrapper<E> {}
+    };
+}
+
 use ark_ff::Zero;
 use core::borrow::Borrow;
 use digest::DynDigest;
@@ -279,12 +306,6 @@ impl Message {
 
     pub fn hash_to_signature_curve<E: EngineBLS>(&self) -> E::SignatureGroup {
         E::hash_to_signature_curve(&[&self.cipher_suite::<E>()[..], &self.1[..]].concat()[..])
-    }
-}
-
-impl<'a> From<&'a [u8]> for Message {
-    fn from(x: &[u8]) -> Message {
-        Message::new(b"", x)
     }
 }
 

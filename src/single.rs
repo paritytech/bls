@@ -27,7 +27,7 @@ use alloc::{vec, vec::Vec};
 use ark_ff::field_hashers::{DefaultFieldHasher, HashToField};
 use ark_ff::{UniformRand, Zero};
 
-use ark_ec::{AffineRepr, CurveGroup, PrimeGroup};
+use ark_ec::{CurveGroup, PrimeGroup};
 
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, Read, SerializationError, Valid, Validate,
@@ -241,10 +241,11 @@ impl<E: EngineBLS> SecretKey<E> {
 
     /// Sign without doing the key resplit mutation that provides side channel protection.
     ///
-    /// Avoid using directly without appropriate `replit` calls, but maybe
-    /// useful in proof-of-concenpt code, as it does not require a mutable
-    /// secret key.
-    pub fn sign_once(&mut self, message: &Message) -> Signature<E> {
+    /// Internal helper: callers must first invoke `resplit` (or use `sign`,
+    /// which does it) to preserve the side-channel guarantee that split-key
+    /// blinding was introduced to provide. Direct external use is disallowed
+    /// by visibility to prevent bypassing the protection.
+    pub(crate) fn sign_once(&mut self, message: &Message) -> Signature<E> {
         let mut z = message.hash_to_signature_curve::<E>();
         z -= &self.old_unsigned;
         self.old_unsigned = z.clone();
@@ -255,8 +256,6 @@ impl<E: EngineBLS> SecretKey<E> {
         let old_signed = self.old_signed.clone();
         self.old_signed = z.clone();
         z += &old_signed;
-        // s.normalize();   // VRFs are faster if we only normalize once, but no normalize method exists.
-        // E::SignatureGroup::batch_normalization(&mut [&mut s]);
         Signature(z)
     }
 
@@ -303,44 +302,6 @@ impl<E: EngineBLS> SecretKey<E> {
 }
 
 // ////////////// NON-SECRETS ////////////// //
-
-// /////// BEGIN MACROS /////// //
-
-/*
-TODO: Requires specilizatin
-macro_rules! borrow_wrapper {
-    ($wrapper:tt,$wrapped:tt,$var:tt) => {
-impl<E: EngineBLS> Borrow<E::$wrapped> for $wrapper<E> {
-    borrow(&self) -> &E::$wrapped { &self.$var }
-}
-impl<E: EngineBLS> BorrowMut<E::$wrapped> for $wrapper<E> {
-    borrow_mut(&self) -> &E::$wrapped { &self.$var }
-}
-    }
-} // macro_rules!
-*/
-
-#[macro_export]
-macro_rules! broken_derives {
-    ($wrapper:tt) => {
-        impl<E: EngineBLS> Clone for $wrapper<E> {
-            fn clone(&self) -> Self {
-                $wrapper(self.0)
-            }
-        }
-        impl<E: EngineBLS> Copy for $wrapper<E> {}
-
-        impl<E: EngineBLS> PartialEq<Self> for $wrapper<E> {
-            fn eq(&self, other: &Self) -> bool {
-                self.0.eq(&other.0)
-            }
-        }
-
-        impl<E: EngineBLS> Eq for $wrapper<E> {}
-    };
-} // macro_rules!
-
-// //////// END MACROS //////// //
 
 /// Implementing de/serialization for secret keypair
 /// Note that deriving serialization for secret is not sensible
@@ -461,7 +422,7 @@ impl<E: EngineBLS> SerializableToBytes for SecretKey<E> {
 #[derive(Debug, CanonicalSerialize, CanonicalDeserialize)]
 pub struct Signature<E: EngineBLS>(pub E::SignatureGroup);
 
-broken_derives!(Signature); // Actually the derive works for this one, not sure why.
+derive_with_bound!(Signature);
 
 impl<E: EngineBLS> Signature<E> {
     //const DESCRIPTION : &'static str = "A BLS signature";
@@ -494,7 +455,7 @@ pub struct PublicKey<E: EngineBLS>(pub E::PublicKeyGroup);
 //     }
 // }
 
-broken_derives!(PublicKey);
+derive_with_bound!(PublicKey);
 
 impl<E: EngineBLS> PublicKey<E> {
     //const DESCRIPTION : &'static str = "A BLS signature";
@@ -638,9 +599,6 @@ pub struct SignedMessage<E: EngineBLS> {
     pub signature: Signature<E>,
 }
 
-// borrow_wrapper!(Signature,SignatureGroup,signature);
-// borrow_wrapper!(PublicKey,PublicKeyGroup,publickey);
-
 impl<E: EngineBLS> PartialEq<Self> for SignedMessage<E> {
     fn eq(&self, other: &Self) -> bool {
         self.message.eq(&other.message)
@@ -675,6 +633,7 @@ impl<'a, E: EngineBLS> Signed for &'a SignedMessage<E> {
 impl<E: EngineBLS> SignedMessage<E> {
     #[cfg(test)]
     pub fn verify_slow(&self) -> bool {
+        use ark_ec::AffineRepr;
         let g1_one = <E::PublicKeyGroup as CurveGroup>::Affine::generator();
         let message = self.message.hash_to_signature_curve::<E>().into_affine();
         E::pairing(g1_one, self.signature.0.into_affine())
