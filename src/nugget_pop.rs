@@ -331,6 +331,37 @@ mod tests {
         >();
     }
 
+    /// Test that explicit rejection of identiy public key in 
+    /// the signature-group key is not required as the Fiat-Shamir DLEQ binding
+    /// extends and enforces that verification from the public-key group    
+    #[test]
+    fn nugget_bls_pop_rejects_tampered_signature_group_pk() {
+        use ark_ff::Zero;
+        let mut keypair = Keypair::<TinyBLS381>::generate(thread_rng());
+        let pop = <Keypair<TinyBLS381> as ProofOfPossessionGenerator<
+            TinyBLS381,
+            Sha256,
+            NuggetDoublePublicKey<TinyBLS381>,
+            NuggetBLSPoP<TinyBLS381>,
+        >>::generate_pok(&mut keypair);
+
+        // Keep `.1` honest but zero out `.0`.
+        let honest = DoubleNuggetBLS::to_nugget_double_public_key(&keypair);
+        let tampered = NuggetDoublePublicKey::<TinyBLS381>::new(
+            <TinyBLS381 as EngineBLS>::SignatureGroup::zero(),
+            honest.1,
+        );
+
+        assert!(
+            !<NuggetBLSPoP<TinyBLS381> as ProofOfPossession<
+                TinyBLS381,
+                Sha256,
+                NuggetDoublePublicKey<TinyBLS381>,
+            >>::verify(&pop, &tampered),
+            "tampering with .0 must fail; DLEQ in the pairing binds it to .1"
+        );
+    }
+
     /// A keypair with secret scalar zero and identity public key.
     /// `SecretKeyVT::sign` returns `sk * H(msg) = identity` for such
     /// a keypair, so the PoP produced by `generate_pok` is itself
