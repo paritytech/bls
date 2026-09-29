@@ -18,8 +18,16 @@ use crate::{Message, SecretKey, SecretKeyVT};
 pub type DLEQProof<E> = (<E as EngineBLS>::Scalar, <E as EngineBLS>::Scalar);
 pub type ChaumPedersenSignature<E> = NuggetSignature<E>;
 
-/// ProofOfPossion trait which should be implemented by secret
-pub trait ChaumPedersenSigner<E: EngineBLS, S: CurveGroup, H: FixedOutputReset + Default + Clone>
+/// Chaum-Pedersen signer trait, implemented by secret-key types: produces a
+/// BLS signature paired with a DLEQ proof that the same secret discrete log
+/// links the public key (in the sister group) and the signature (in the
+/// signature group).
+///
+/// `ChaumPedersenDleqProver` supertrait is the private part of the trait
+/// that is not exposed to API
+#[allow(private_bounds)]
+pub trait ChaumPedersenSigner<E: EngineBLS, S: CurveGroup, H: FixedOutputReset + Default + Clone>:
+    ChaumPedersenDleqProver<E, S, H>
 where
     S: PrimeGroup<ScalarField = E::Scalar>,
 {
@@ -27,10 +35,18 @@ where
     /// to produce a schnoor signature of the message using
     /// the secret key which it claim to possess.
     fn generate_cp_signature(&mut self, message: &Message) -> ChaumPedersenSignature<E>;
+}
 
+/// Internal helpers backing `generate_cp_signature`shouldn't be called directly
+trait ChaumPedersenDleqProver<E: EngineBLS, S: CurveGroup, H: FixedOutputReset + Default + Clone>
+where
+    S: PrimeGroup<ScalarField = E::Scalar>,
+{
     fn generate_witness_scaler(
         &self,
         message_point_as_bytes: &Vec<u8>,
+        signature_point_as_bytes: &Vec<u8>,
+        public_key_in_signature_group_as_bytes: &Vec<u8>,
     ) -> <<E as EngineBLS>::PublicKeyGroup as PrimeGroup>::ScalarField;
 
     fn generate_dleq_proof(
@@ -262,14 +278,20 @@ where
         let bls_signature = SecretKeyVT::sign(self, message);
         NuggetSignature(
             bls_signature.0,
-            <SecretKeyVT<E> as ChaumPedersenSigner<E, S, H>>::generate_dleq_proof(
+            <SecretKeyVT<E> as ChaumPedersenDleqProver<E, S, H>>::generate_dleq_proof(
                 self,
                 message,
                 bls_signature.0,
             ),
         )
     }
+}
 
+impl<E: EngineBLS, S: CurveGroup, H: FixedOutputReset + Default + Clone>
+    ChaumPedersenDleqProver<E, S, H> for SecretKeyVT<E>
+where
+    S: PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes,
+{
     #[allow(non_snake_case)]
     fn generate_dleq_proof(
         &mut self,
@@ -285,9 +307,13 @@ where
             &NuggetBLS::<E, S>::to_public_key_in_signature_group(self).0,
         );
 
-        let mut k = <SecretKeyVT<E> as ChaumPedersenSigner<E, S, H>>::generate_witness_scaler(
+        // As a defense meauser everyting that is hashed in c and doesn't dependens on k is
+        // also hashed in k.
+        let mut k = <SecretKeyVT<E> as ChaumPedersenDleqProver<E, S, H>>::generate_witness_scaler(
             self,
             &message_point_as_bytes,
+            &signature_point_as_bytes,
+            &public_key_in_signature_group_as_bytes,
         );
 
         let A_point = <S as PrimeGroup>::generator() * k;
@@ -321,6 +347,8 @@ where
     fn generate_witness_scaler(
         &self,
         message_point_as_bytes: &Vec<u8>,
+        signature_point_as_bytes: &Vec<u8>,
+        public_key_in_signature_group_as_bytes: &Vec<u8>,
     ) -> <<E as EngineBLS>::PublicKeyGroup as PrimeGroup>::ScalarField {
         let mut secret_key_hasher = H::default();
 
@@ -333,7 +361,13 @@ where
         let hasher = <DefaultFieldHasher<H> as HashToField<
             <<E as EngineBLS>::PublicKeyGroup as PrimeGroup>::ScalarField,
         >>::new(&[]);
-        let scalar_seed = [hashed_secret_key, message_point_as_bytes.clone()].concat();
+        let scalar_seed = [
+            hashed_secret_key,
+            message_point_as_bytes.clone(),
+            public_key_in_signature_group_as_bytes.clone(),
+            signature_point_as_bytes.clone(),
+        ]
+        .concat();
         hasher.hash_to_field::<1>(scalar_seed.as_slice())[0]
     }
 }
@@ -344,26 +378,16 @@ where
 /// delegate to the vartime form, which is acceptable because they
 /// operate over auxiliary scalars rather than the long-term key.
 impl<E: EngineBLS, S: CurveGroup, H: FixedOutputReset + Default + Clone>
-    ChaumPedersenSigner<E, S, H> for SecretKey<E>
+    ChaumPedersenDleqProver<E, S, H> for SecretKey<E>
 where
     S: PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes,
 {
-    fn generate_cp_signature(&mut self, message: &Message) -> ChaumPedersenSignature<E> {
-        let bls_signature = self.seeded_sign(message);
-        let dleq = <Self as ChaumPedersenSigner<E, S, H>>::generate_dleq_proof(
-            self,
-            message,
-            bls_signature.0,
-        );
-        NuggetSignature(bls_signature.0, dleq)
-    }
-
     fn generate_dleq_proof(
         &mut self,
         message: &Message,
         bls_signature: E::SignatureGroup,
     ) -> DLEQProof<E> {
-        <SecretKeyVT<E> as ChaumPedersenSigner<E, S, H>>::generate_dleq_proof(
+        <SecretKeyVT<E> as ChaumPedersenDleqProver<E, S, H>>::generate_dleq_proof(
             &mut self.to_vartime(),
             message,
             bls_signature,
@@ -372,16 +396,32 @@ where
 
     fn generate_witness_scaler(
         &self,
-        _message_point_as_bytes: &Vec<u8>,
+        message_point_as_bytes: &Vec<u8>,
+        signature_point_as_bytes: &Vec<u8>,
+        public_key_in_signature_group_as_bytes: &Vec<u8>,
     ) -> <<E as EngineBLS>::PublicKeyGroup as PrimeGroup>::ScalarField {
-        // Unreachable: `generate_dleq_proof` for `SecretKey` delegates to
-        // the `SecretKeyVT` impl, which calls its own `generate_witness_scaler`.
-        // Trait coherence forces us to provide a body here, but no caller
-        // ever lands on it.
-        unimplemented!(
-            "SecretKey::generate_witness_scaler is never called; \
-             dleq generation delegates to SecretKeyVT"
+        <SecretKeyVT<E> as ChaumPedersenDleqProver<E, S, H>>::generate_witness_scaler(
+            &self.to_vartime(),
+            message_point_as_bytes,
+            signature_point_as_bytes,
+            public_key_in_signature_group_as_bytes,
         )
+    }
+}
+
+impl<E: EngineBLS, S: CurveGroup, H: FixedOutputReset + Default + Clone>
+    ChaumPedersenSigner<E, S, H> for SecretKey<E>
+where
+    S: PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes,
+{
+    fn generate_cp_signature(&mut self, message: &Message) -> ChaumPedersenSignature<E> {
+        let bls_signature = self.seeded_sign(message);
+        let dleq = <Self as ChaumPedersenDleqProver<E, S, H>>::generate_dleq_proof(
+            self,
+            message,
+            bls_signature.0,
+        );
+        NuggetSignature(bls_signature.0, dleq)
     }
 }
 
