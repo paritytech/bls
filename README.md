@@ -78,7 +78,7 @@ Assuming you already have proofs-of-possession, then you'll want to do aggregati
 The library offers method for generating and verifying proof of positions both based on BLS and [Schnorr Signature](https://en.wikipedia.org/wiki/Schnorr_signature) which is faster to verify than when using BLS signature itself as proof of position. The following example demonstrate how to generate and verify proof of positions and then using `SignatureAggregatorAssumingPoP` to batch and verify multiple BLS signatures.
 
 ```rust
-use w3f_bls::{Keypair,PublicKey,ZBLS,Message,Signed, ProofOfPossessionGenerator, ProofOfPossession, experimental::schnorr_pop::{SchnorrPoP}, multi_pop_aggregator::MultiMessageSignatureAggregatorAssumingPoP};
+use w3f_bls::{Keypair,PublicKey,ZBLS,Message,Signed, ProofOfPossessionGenerator, ProofOfPossession, experimental::schnorr_pop::{SchnorrPoP}, pop_aggregator::SignatureAggregatorAssumingPoP};
 use sha2::Sha256;
 
 let mut keypairs = [Keypair::<ZBLS>::generate(::rand::thread_rng()), Keypair::<ZBLS>::generate(::rand::thread_rng())];
@@ -92,7 +92,7 @@ let pops = keypairs.iter_mut().map(|k|(ProofOfPossessionGenerator::<ZBLS, Sha256
 let publickeys = publickeys.iter().zip(pops.iter()).map(|(publickey, pop) | {assert!(ProofOfPossession::<ZBLS, Sha256, PublicKey<ZBLS>>::verify(pop,publickey)); publickey}).collect::<Vec<_>>();
 
 let batch_poped = msgs.iter().zip(publickeys).zip(sigs).fold(
-    MultiMessageSignatureAggregatorAssumingPoP::<ZBLS>::new(),
+    SignatureAggregatorAssumingPoP::<ZBLS>::new(),
     |mut bpop,((message, publickey),sig)| { bpop.add_message_n_publickey(message, &publickey); bpop.add_signature(&sig); bpop }
 );
 assert!(batch_poped.verify())
@@ -106,12 +106,11 @@ The scheme introduced in [`our recent paper`](https://eprint.iacr.org/2022/1611)
 ```rust
 use sha2::Sha256;
 use ark_bls12_377::Bls12_377;
-use ark_ff::Zero;
 use rand::thread_rng;
 
 use w3f_bls::{
-    single_pop_aggregator::SignatureAggregatorAssumingPoP, DoubleNuggetBLS, EngineBLS, Keypair,
-    Message, NuggetPublicKey, PublicKey, PublicKeyInSignatureGroup, Signed, TinyBLS, TinyBLS377,
+    pop_aggregator::SignatureAggregatorAssumingPoP, DoubleNuggetBLS, EngineBLS, Keypair,
+    Message, NuggetPublicKey, PublicKeyInSignatureGroup, TinyBLS, TinyBLS377,
 };
 
 
@@ -122,31 +121,16 @@ let mut keypairs: Vec<_> = (0..3)
     .collect();
 let pub_keys_in_sig_grp: Vec<PublicKeyInSignatureGroup<TinyBLS377>> = keypairs
     .iter()
-    .map(|k| DoubleNuggetBLS::<TinyBLS377>::into_nugget_double_public_key(k).into_public_key_in_signature_group())
+    .map(|k| DoubleNuggetBLS::<TinyBLS377>::to_nugget_double_public_key(k).to_public_key_in_signature_group())
     .collect();
 
-let mut prover_aggregator =
-    SignatureAggregatorAssumingPoP::<TinyBLS377>::new(message.clone());
-let mut aggregated_public_key =
-    PublicKey::<TinyBLS377>(<TinyBLS377 as EngineBLS>::PublicKeyGroup::zero());
+let mut verifier_aggregator = SignatureAggregatorAssumingPoP::<TinyBLS377>::new();
 
-//sign and aggegate
-let _ = keypairs
-    .iter_mut()
-    .map(|k| {
-        prover_aggregator.add_signature(&k.sign(&message));
-        aggregated_public_key.0 += k.public.0;
-    })
-    .count();
-
-let mut verifier_aggregator = SignatureAggregatorAssumingPoP::<TinyBLS377>::new(message);
-
-verifier_aggregator.add_signature(&(&prover_aggregator).signature());
-
-//aggregate public keys in signature group
-verifier_aggregator.add_publickey(&aggregated_public_key);
-
-pub_keys_in_sig_grp.iter().for_each(|pk| {verifier_aggregator.add_auxiliary_public_key(pk);});
+//sign, aggregate, and add (publickey, aux) pairs
+for (k, aux) in keypairs.iter_mut().zip(pub_keys_in_sig_grp.iter()) {
+    verifier_aggregator.add_signature(&k.sign(&message));
+    verifier_aggregator.add_message_n_publickey(&message, &(k.public, *aux));
+}
 
 assert!(
     verifier_aggregator.verify_using_aggregated_auxiliary_public_keys::<Sha256>(),
@@ -157,6 +141,10 @@ assert!(
 ### Hash to Curve
 
 In order to sign a message, the library needs to hash the message as a point on the signature curve. While `BLSEngine` trait is agnostic about `MapToSignatureCurve` method, our implementation of BLS12-381 (`ZBLS`) and BLS12-377(`BLS377`) specifically uses Wahby and Boneh hash to curve method described in Section of 6.6.3 of https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/.
+
+## Experimental code
+
+Multiple flavors of BLS signature batching (bit field, delinearized batching, batching only for distinct messages), as well as Schnorr Proof of Possession, and Triple Nugget BLS with various sister curves have been implemented, purely for comparison and research purposes. This code resides in the [`src/experimental`] and [`experimental_curves`] folders behind the `--experimental` feature flag. It has not been audited and is not intended to be used in production.
 
 ## Security Warnings
 

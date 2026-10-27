@@ -41,11 +41,13 @@ impl<E: EngineBLS, H: FixedOutputReset + Default + Clone + 'static> BLSSchnorrPo
     //The pseudo random witness is generated similar to eddsa witness
     //hash(secret_key|publick_key)
     fn witness_scalar(&self) -> <<E as EngineBLS>::PublicKeyGroup as PrimeGroup>::ScalarField {
-        let secret_key_as_bytes = self.secret.to_bytes();
+        let mut secret_key_as_bytes = self.secret.to_bytes();
         let public_key_as_bytes = <E as EngineBLS>::public_key_point_to_byte(&self.public.0);
 
         let mut secret_key_hasher = H::default();
         secret_key_hasher.update(secret_key_as_bytes.as_slice());
+        ::zeroize::Zeroize::zeroize(secret_key_as_bytes.as_mut_slice());
+
         let hashed_secret_key = secret_key_hasher.finalize_fixed_reset().to_vec();
 
         let hasher = <DefaultFieldHasher<H> as HashToField<
@@ -91,7 +93,7 @@ impl<E: EngineBLS, H: FixedOutputReset + Default + Clone + 'static>
         >>::new(&[]);
         let k = hasher.hash_to_field::<1>(proof_basis.as_slice())[0];
 
-        let s = (k * self.secret.into_vartime().0) + r;
+        let s = (k * self.secret.to_vartime().0) + r;
 
         ::zeroize::Zeroize::zeroize(&mut r); //clear secret witness from memory
 

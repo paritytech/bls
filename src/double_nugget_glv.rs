@@ -126,15 +126,15 @@ where
     C: BLSGLVConfig,
     Projective<C>: SerializableToBytes + PrimeGroup<ScalarField = E::Scalar>,
 {
-    fn into_public_key_in_signature_group(&self) -> PublicKeyInSignatureGroup<E> {
+    fn to_public_key_in_signature_group(&self) -> PublicKeyInSignatureGroup<E> {
         PublicKeyInSignatureGroup(self.public_key_in_signature_group)
     }
 
-    fn into_bls_public_key(&self) -> PublicKey<E> {
+    fn to_bls_public_key(&self) -> PublicKey<E> {
         PublicKey(self.public_key)
     }
 
-    fn into_public_key_in_sister_group(&self) -> PublicKeyInSisterGroup<Projective<C>> {
+    fn to_public_key_in_sister_group(&self) -> PublicKeyInSisterGroup<Projective<C>> {
         PublicKeyInSisterGroup(self.public_key_in_signature_group)
     }
 
@@ -167,7 +167,7 @@ where
     Projective<C>: PrimeGroup<ScalarField = E::Scalar>,
 {
     /// Return a double public object containing public keys both in G1 and G2
-    fn into_nugget_double_public_key(&self) -> NuggetDoublePublicKeyGLV<E, C>;
+    fn to_nugget_double_public_key(&self) -> NuggetDoublePublicKeyGLV<E, C>;
 }
 
 impl<E, C> DoubleNuggetBLSGLV<E, C> for SecretKeyVT<E>
@@ -176,13 +176,13 @@ where
     C: BLSGLVConfig,
     Projective<C>: SerializableToBytes + PrimeGroup<ScalarField = E::Scalar>,
 {
-    fn into_nugget_double_public_key(&self) -> NuggetDoublePublicKeyGLV<E, C> {
+    fn to_nugget_double_public_key(&self) -> NuggetDoublePublicKeyGLV<E, C> {
         NuggetDoublePublicKeyGLV::new(
-            <SecretKeyVT<E> as NuggetBLS<E, Projective<C>>>::into_public_key_in_signature_group(
+            <SecretKeyVT<E> as NuggetBLS<E, Projective<C>>>::to_public_key_in_signature_group(
                 self,
             )
             .0,
-            self.into_public().0,
+            self.to_public().0,
         )
     }
 }
@@ -193,8 +193,8 @@ where
     C: BLSGLVConfig,
     Projective<C>: SerializableToBytes + PrimeGroup<ScalarField = E::Scalar>,
 {
-    fn into_nugget_double_public_key(&self) -> NuggetDoublePublicKeyGLV<E, C> {
-        self.secret.into_nugget_double_public_key()
+    fn to_nugget_double_public_key(&self) -> NuggetDoublePublicKeyGLV<E, C> {
+        self.secret.to_nugget_double_public_key()
     }
 }
 
@@ -204,8 +204,8 @@ where
     C: BLSGLVConfig,
     Projective<C>: SerializableToBytes + PrimeGroup<ScalarField = E::Scalar>,
 {
-    fn into_nugget_double_public_key(&self) -> NuggetDoublePublicKeyGLV<E, C> {
-        self.into_vartime().into_nugget_double_public_key()
+    fn to_nugget_double_public_key(&self) -> NuggetDoublePublicKeyGLV<E, C> {
+        self.to_vartime().to_nugget_double_public_key()
     }
 }
 
@@ -276,7 +276,7 @@ mod tests {
         let good = Message::new(b"ctx", b"test message");
 
         let mut keypair = Keypair::<EB>::generate(thread_rng());
-        let public_key = DoubleNuggetBLSGLV::into_nugget_double_public_key(&mut keypair);
+        let public_key = DoubleNuggetBLSGLV::to_nugget_double_public_key(&mut keypair);
         let good_sig = <Keypair<EB> as NuggetBLS<EB, Projective<C>>>::sign(&mut keypair, &good);
 
         assert!(
@@ -289,7 +289,7 @@ mod tests {
 
         assert!(bad_sig.verify::<_, Sha256, _>(
             &bad,
-            &DoubleNuggetBLSGLV::into_nugget_double_public_key(&keypair)
+            &DoubleNuggetBLSGLV::to_nugget_double_public_key(&keypair)
         ));
 
         assert!(good != bad, "good == bad");
@@ -298,14 +298,14 @@ mod tests {
         assert!(
             !bad_sig.verify::<_, Sha256, _>(
                 &good,
-                &DoubleNuggetBLSGLV::into_nugget_double_public_key(&keypair)
+                &DoubleNuggetBLSGLV::to_nugget_double_public_key(&keypair)
             ),
             "Verification of a signature on a different message passed!"
         );
         assert!(
             !good_sig.verify::<_, Sha256, _>(
                 &bad,
-                &DoubleNuggetBLSGLV::into_nugget_double_public_key(&keypair)
+                &DoubleNuggetBLSGLV::to_nugget_double_public_key(&keypair)
             ),
             "Verification of a signature on a different message passed!"
         );
@@ -324,7 +324,7 @@ mod tests {
 
         let signed_message = DoubleSignedMessageGLV {
             message: message,
-            publickey: keypair.into_nugget_double_public_key(),
+            publickey: keypair.to_nugget_double_public_key(),
             signature: good_sig0,
             _phantom: PhantomData,
         };
@@ -361,7 +361,7 @@ mod tests {
 
         let signed_message = DoubleSignedMessageGLV {
             message: message,
-            publickey: keypair.into_nugget_double_public_key(),
+            publickey: keypair.to_nugget_double_public_key(),
             signature: good_sig0,
             _phantom: PhantomData,
         };

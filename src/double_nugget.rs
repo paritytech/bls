@@ -101,7 +101,7 @@ impl<E: EngineBLS> NuggetDoublePublicKey<E> {
 
 pub trait DoubleNuggetBLS<E: EngineBLS>: NuggetBLS<E, E::SignatureGroup> {
     /// Return a double public object containing public keys both in G1 and G2
-    fn into_nugget_double_public_key(&self) -> NuggetDoublePublicKey<E>;
+    fn to_nugget_double_public_key(&self) -> NuggetDoublePublicKey<E>;
 }
 
 impl<E: EngineBLS, H: FixedOutputReset + Default + Clone>
@@ -115,15 +115,15 @@ impl<E: EngineBLS> NuggetPublicKey<E, E::SignatureGroup> for NuggetDoublePublicK
 where
     E::SignatureGroup: SerializableToBytes + DualScalarMultiplication,
 {
-    fn into_public_key_in_signature_group(&self) -> PublicKeyInSignatureGroup<E> {
+    fn to_public_key_in_signature_group(&self) -> PublicKeyInSignatureGroup<E> {
         PublicKeyInSignatureGroup(self.0)
     }
 
-    fn into_bls_public_key(&self) -> PublicKey<E> {
+    fn to_bls_public_key(&self) -> PublicKey<E> {
         PublicKey(self.1)
     }
 
-    fn into_public_key_in_sister_group(&self) -> PublicKeyInSisterGroup<E::SignatureGroup> {
+    fn to_public_key_in_sister_group(&self) -> PublicKeyInSisterGroup<E::SignatureGroup> {
         PublicKeyInSisterGroup(self.0)
     }
 
@@ -146,10 +146,10 @@ impl<E: EngineBLS> DoubleNuggetBLS<E> for SecretKeyVT<E>
 where
     E::SignatureGroup: SerializableToBytes,
 {
-    fn into_nugget_double_public_key(&self) -> NuggetDoublePublicKey<E> {
+    fn to_nugget_double_public_key(&self) -> NuggetDoublePublicKey<E> {
         NuggetDoublePublicKey::new(
-            <SecretKeyVT<E> as NuggetBLS::<E, E::SignatureGroup>>::into_public_key_in_signature_group(self).0,
-            self.into_public().0,
+            <SecretKeyVT<E> as NuggetBLS::<E, E::SignatureGroup>>::to_public_key_in_signature_group(self).0,
+            self.to_public().0,
         )
     }
 }
@@ -158,8 +158,8 @@ impl<E: EngineBLS> DoubleNuggetBLS<E> for KeypairVT<E>
 where
     E::SignatureGroup: SerializableToBytes,
 {
-    fn into_nugget_double_public_key(&self) -> NuggetDoublePublicKey<E> {
-        self.secret.into_nugget_double_public_key()
+    fn to_nugget_double_public_key(&self) -> NuggetDoublePublicKey<E> {
+        self.secret.to_nugget_double_public_key()
     }
 }
 
@@ -167,8 +167,8 @@ impl<E: EngineBLS> DoubleNuggetBLS<E> for Keypair<E>
 where
     E::SignatureGroup: SerializableToBytes,
 {
-    fn into_nugget_double_public_key(&self) -> NuggetDoublePublicKey<E> {
-        self.into_vartime().into_nugget_double_public_key()
+    fn to_nugget_double_public_key(&self) -> NuggetDoublePublicKey<E> {
+        self.to_vartime().to_nugget_double_public_key()
     }
 }
 
@@ -237,7 +237,7 @@ mod tests {
         let good = Message::new(b"ctx", b"test message");
 
         let mut keypair = Keypair::<EB>::generate(thread_rng());
-        let public_key = DoubleNuggetBLS::into_nugget_double_public_key(&mut keypair);
+        let public_key = DoubleNuggetBLS::to_nugget_double_public_key(&mut keypair);
         let good_sig =
             <Keypair<EB> as NuggetBLS<EB, EB::SignatureGroup>>::sign(&mut keypair, &good);
 
@@ -251,7 +251,7 @@ mod tests {
 
         assert!(bad_sig.verify::<_, Sha256, _>(
             &bad,
-            &DoubleNuggetBLS::into_nugget_double_public_key(&keypair)
+            &DoubleNuggetBLS::to_nugget_double_public_key(&keypair)
         ));
 
         assert!(good != bad, "good == bad");
@@ -260,14 +260,14 @@ mod tests {
         assert!(
             !bad_sig.verify::<_, Sha256, _>(
                 &good,
-                &DoubleNuggetBLS::into_nugget_double_public_key(&keypair)
+                &DoubleNuggetBLS::to_nugget_double_public_key(&keypair)
             ),
             "Verification of a signature on a different message passed!"
         );
         assert!(
             !good_sig.verify::<_, Sha256, _>(
                 &bad,
-                &DoubleNuggetBLS::into_nugget_double_public_key(&keypair)
+                &DoubleNuggetBLS::to_nugget_double_public_key(&keypair)
             ),
             "Verification of a signature on a different message passed!"
         );
@@ -285,7 +285,7 @@ mod tests {
 
         let signed_message = DoubleSignedMessage {
             message: message,
-            publickey: keypair.into_nugget_double_public_key(),
+            publickey: keypair.to_nugget_double_public_key(),
             signature: good_sig0,
             _phantom: PhantomData,
         };
@@ -320,7 +320,7 @@ mod tests {
 
         let signed_message = DoubleSignedMessage {
             message: message,
-            publickey: keypair.into_nugget_double_public_key(),
+            publickey: keypair.to_nugget_double_public_key(),
             signature: good_sig0,
             _phantom: PhantomData,
         };

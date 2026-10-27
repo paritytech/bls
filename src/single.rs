@@ -2,7 +2,7 @@
 //!
 //! We simplify the code by using only the projective form as
 //! produced by algebraic operations, like aggregation, signing, and
-//! `SecretKey::into_public`, for both `Signature` and `Group`.
+//! `SecretKey::to_public`, for both `Signature` and `Group`.
 //!
 //! In principle, one benifits from an affine form in serialization,
 //! and pairings meaning signature verification, but the conversion
@@ -19,16 +19,15 @@
 //! improved performance enough then we instead suggest tweaking
 //! `CurveGroup::add_mixed` to test for normalized points.
 //!
-//! TODO: Add serde support for serialization throughout.  See
-//!  https://github.com/ebfull/pairing/pull/87#issuecomment-402397091
-//!  https://github.com/poanetwork/hbbft/blob/38178af1244ddeca27f9d23750ca755af6e886ee/src/crypto/serde_impl.rs#L95
+//! Serialization for Public Keys and Signatures is provided via
+//! [`SerializableToBytes`](crate::serialize::SerializableToBytes)
 
 use alloc::{vec, vec::Vec};
 
 use ark_ff::field_hashers::{DefaultFieldHasher, HashToField};
 use ark_ff::{UniformRand, Zero};
 
-use ark_ec::{AffineRepr, CurveGroup};
+use ark_ec::{CurveGroup, PrimeGroup};
 
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, Read, SerializationError, Valid, Validate,
@@ -45,6 +44,7 @@ use sha3::{
 };
 
 use digest::Digest;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use core::iter::once;
 
@@ -54,8 +54,8 @@ use crate::{EngineBLS, Message, Signed};
 
 /// Secret signing key lacking the side channel protections from
 /// key splitting.  Avoid using directly in production.
-#[derive(CanonicalSerialize, CanonicalDeserialize)]
-pub struct SecretKeyVT<E: EngineBLS>(pub E::Scalar);
+#[derive(CanonicalSerialize, CanonicalDeserialize, Zeroize, ZeroizeOnDrop)]
+pub struct SecretKeyVT<E: EngineBLS>(#[zeroize] pub E::Scalar);
 
 impl<E: EngineBLS> Clone for SecretKeyVT<E> {
     fn clone(&self) -> Self {
@@ -87,7 +87,7 @@ impl<E: EngineBLS> SecretKeyVT<E> {
 
     /// Convert into a `SecretKey` that supports side channel protections,
     /// but does not itself resplit the key.
-    pub fn into_split_dirty(&self) -> SecretKey<E> {
+    pub fn to_split_dirty(&self) -> SecretKey<E> {
         SecretKey {
             key: [self.0.clone(), E::Scalar::zero()],
             old_unsigned: E::SignatureGroup::zero(),
@@ -96,20 +96,16 @@ impl<E: EngineBLS> SecretKeyVT<E> {
     }
 
     /// Convert into a `SecretKey` applying side channel protections.
-    pub fn into_split<R: Rng>(&self, mut rng: R) -> SecretKey<E> {
-        let mut s = self.into_split_dirty();
+    pub fn to_split<R: Rng>(&self, mut rng: R) -> SecretKey<E> {
+        let mut s = self.to_split_dirty();
         s.resplit(&mut rng);
         s.init_point_mutation(rng);
         s
     }
 
     /// Derive our public key from our secret key
-    pub fn into_public(&self) -> PublicKey<E> {
-        // TODO str4d never decided on projective vs affine here, so benchmark both versions.
-        PublicKey(<E::PublicKeyGroup as CurveGroup>::Affine::generator().into_group() * self.0)
-        // let mut g = <E::PublicKeyGroup as CurveGroup>::one();
-        // g *= self.0;
-        // PublicKey(p)
+    pub fn to_public(&self) -> PublicKey<E> {
+        PublicKey(<E::PublicKeyGroup as PrimeGroup>::generator() * self.0)
     }
 }
 
@@ -149,23 +145,26 @@ impl<E: EngineBLS> SecretKeyVT<E> {
 "##
 )]
 ///
-/// Right now, we serialize using `SecretKey::into_vartime` and
-/// `SecretKeyVT::write`, so `secret.into_vartime().write(writer)?`.
-/// We deserialize using the `read`, `from_repr`, and `into_split`
+/// Right now, we serialize using `SecretKey::to_vartime` and
+/// `SecretKeyVT::write`, so `secret.to_vartime().write(writer)?`.
+/// We deserialize using the `read`, `from_repr`, and `to_split`
 /// methods of `SecretKeyVT`, so roughly
-/// `SecretKeyVT::from_repr(SecretKeyVT::read(reader) ?) ?.into_split(thread_rng())`.
+/// `SecretKeyVT::from_repr(SecretKeyVT::read(reader) ?) ?.to_split(thread_rng())`.
 ///
-/// TODO: Provide sensible `to_bytes` and `from_bytes` methods
-/// for `ZBLS` and `TinyBLS<..>`.
-///
-/// TODO: Is Pippenger’s algorithm, or another fast MSM algorithm,
-/// secure when used with key splitting?
+/// Note: current signing uses naive scalar multiplication (via `resplit`
+/// + `sign_once`). Adopting Pippenger's algorithm or another fast MSM
+/// method here would require verifying its side-channel properties
+/// against a split key first. Not currently used.
 
 /// Secret signing key including the side channel protections from
 /// key splitting.
+#[derive(ZeroizeOnDrop)]
 pub struct SecretKey<E: EngineBLS> {
+    #[zeroize]
     key: [E::Scalar; 2],
+    #[zeroize]
     old_unsigned: E::SignatureGroup,
+    #[zeroize]
     old_signed: E::SignatureGroup,
 }
 
@@ -201,7 +200,7 @@ where
     }
 
     pub fn from_seed(seed: &[u8]) -> Self {
-        SecretKeyVT::from_seed(seed).into_split_dirty()
+        SecretKeyVT::from_seed(seed).to_split_dirty()
     }
 }
 
@@ -222,7 +221,7 @@ impl<E: EngineBLS> SecretKey<E> {
 
     /// Create a representative usable for operations lacking
     /// side channel protections.  
-    pub fn into_vartime(&self) -> SecretKeyVT<E> {
+    pub fn to_vartime(&self) -> SecretKeyVT<E> {
         let mut secret = self.key[0].clone();
         secret += &self.key[1];
         SecretKeyVT(secret)
@@ -231,9 +230,9 @@ impl<E: EngineBLS> SecretKey<E> {
     /// Randomly adjust how we split our secret signing key.
     //
     // An initial call to this function after deserialization or
-    // `into_split_dirty` incurs a miniscule risk from side channel
+    // `to_split_dirty` incurs a miniscule risk from side channel
     // attacks, but then protects the highly vulnerable signing
-    // operations.  `into_split` itself handles this.
+    // operations.  `to_split` itself handles this.
     #[inline(never)]
     pub fn resplit<R: Rng>(&mut self, mut rng: R) {
         // resplit_with(|| Ok(self), rng).unwrap();
@@ -244,10 +243,11 @@ impl<E: EngineBLS> SecretKey<E> {
 
     /// Sign without doing the key resplit mutation that provides side channel protection.
     ///
-    /// Avoid using directly without appropriate `replit` calls, but maybe
-    /// useful in proof-of-concenpt code, as it does not require a mutable
-    /// secret key.
-    pub fn sign_once(&mut self, message: &Message) -> Signature<E> {
+    /// Internal helper: callers must first invoke `resplit` (or use `sign`,
+    /// which does it) to preserve the side-channel guarantee that split-key
+    /// blinding was introduced to provide. Direct external use is disallowed
+    /// by visibility to prevent bypassing the protection.
+    pub(crate) fn sign_once(&mut self, message: &Message) -> Signature<E> {
         let mut z = message.hash_to_signature_curve::<E>();
         z -= &self.old_unsigned;
         self.old_unsigned = z.clone();
@@ -258,8 +258,6 @@ impl<E: EngineBLS> SecretKey<E> {
         let old_signed = self.old_signed.clone();
         self.old_signed = z.clone();
         z += &old_signed;
-        // s.normalize();   // VRFs are faster if we only normalize once, but no normalize method exists.
-        // E::SignatureGroup::batch_normalization(&mut [&mut s]);
         Signature(z)
     }
 
@@ -269,66 +267,43 @@ impl<E: EngineBLS> SecretKey<E> {
         self.sign_once(message)
     }
 
+    /// Sign deterministically, reseeding the resplit RNG from a hash
+    /// of both key halves and the message.
+    pub fn seeded_sign(&mut self, message: &Message) -> Signature<E> {
+        let mut serialized_part1 = [0u8; 32];
+        let mut serialized_part2 = [0u8; 32];
+        self.key[0]
+            .serialize_compressed(&mut serialized_part1[..])
+            .unwrap();
+        self.key[1]
+            .serialize_compressed(&mut serialized_part2[..])
+            .unwrap();
+
+        let seed_digest = Sha256::new()
+            .chain_update(serialized_part1)
+            .chain_update(serialized_part2)
+            .chain_update(message.0);
+
+        ::zeroize::Zeroize::zeroize(&mut serialized_part1);
+        ::zeroize::Zeroize::zeroize(&mut serialized_part2);
+
+        let seed: [u8; 32] = seed_digest.finalize().into();
+        self.sign(message, StdRng::from_seed(seed))
+    }
+
     /// Derive our public key from our secret key
     ///
     /// We do not resplit for side channel protections here since
     /// this call should be rare.
-    pub fn into_public(&self) -> PublicKey<E> {
-        let generator = <E::PublicKeyGroup as CurveGroup>::Affine::generator();
+    pub fn to_public(&self) -> PublicKey<E> {
+        let generator = <E::PublicKeyGroup as PrimeGroup>::generator();
         let mut publickey = generator * self.key[0];
-        publickey += generator.into_group() * self.key[1];
+        publickey += generator * self.key[1];
         PublicKey(publickey)
-        // TODO str4d never decided on projective vs affine here, so benchmark this.
-        /*
-        let mut x = <E::PublicKeyGroup as CurveGroup>::one();
-        x *= self.0;
-        let y = <E::PublicKeyGroup as CurveGroup>::one();
-        y *= self.1;
-        x += &y;
-        PublicKey(x)
-        */
     }
 }
 
 // ////////////// NON-SECRETS ////////////// //
-
-// /////// BEGIN MACROS /////// //
-
-/*
-TODO: Requires specilizatin
-macro_rules! borrow_wrapper {
-    ($wrapper:tt,$wrapped:tt,$var:tt) => {
-impl<E: EngineBLS> Borrow<E::$wrapped> for $wrapper<E> {
-    borrow(&self) -> &E::$wrapped { &self.$var }
-}
-impl<E: EngineBLS> BorrowMut<E::$wrapped> for $wrapper<E> {
-    borrow_mut(&self) -> &E::$wrapped { &self.$var }
-}
-    }
-} // macro_rules!
-*/
-
-#[macro_export]
-macro_rules! broken_derives {
-    ($wrapper:tt) => {
-        impl<E: EngineBLS> Clone for $wrapper<E> {
-            fn clone(&self) -> Self {
-                $wrapper(self.0)
-            }
-        }
-        impl<E: EngineBLS> Copy for $wrapper<E> {}
-
-        impl<E: EngineBLS> PartialEq<Self> for $wrapper<E> {
-            fn eq(&self, other: &Self) -> bool {
-                self.0.eq(&other.0)
-            }
-        }
-
-        impl<E: EngineBLS> Eq for $wrapper<E> {}
-    };
-} // macro_rules!
-
-// //////// END MACROS //////// //
 
 /// Implementing de/serialization for secret keypair
 /// Note that deriving serialization for secret is not sensible
@@ -343,34 +318,34 @@ where
         writer: W,
         compress: ark_serialize::Compress,
     ) -> Result<(), SerializationError> {
-        self.into_vartime().serialize_with_mode(writer, compress)
+        self.to_vartime().serialize_with_mode(writer, compress)
     }
 
     #[inline]
     fn serialize_compressed<W: Write>(&self, writer: W) -> Result<(), SerializationError> {
-        self.into_vartime().serialize_compressed(writer)?;
+        self.to_vartime().serialize_compressed(writer)?;
         Ok(())
     }
 
     #[inline]
     fn serialized_size(&self, compress: Compress) -> usize {
-        self.into_vartime().serialized_size(compress)
+        self.to_vartime().serialized_size(compress)
     }
 
     #[inline]
     fn serialize_uncompressed<W: Write>(&self, mut writer: W) -> Result<(), SerializationError> {
-        self.into_vartime().serialize_uncompressed(&mut writer)?;
+        self.to_vartime().serialize_uncompressed(&mut writer)?;
         Ok(())
     }
 
     #[inline]
     fn uncompressed_size(&self) -> usize {
-        self.into_vartime().uncompressed_size()
+        self.to_vartime().uncompressed_size()
     }
 
     // #[inline]
     // fn serialize_uncompressed_<W: Write>(&self, mut writer: W) -> Result<(), SerializationError> {
-    //     self.into_vartime().uncompressed_size().serialize_unchecked(&mut writer)?;
+    //     self.to_vartime().uncompressed_size().serialize_unchecked(&mut writer)?;
     //     Ok(())
     // }
 }
@@ -380,7 +355,6 @@ where
     E: EngineBLS,
 {
     fn check(&self) -> Result<(), SerializationError> {
-        //TODO probabaly turn into vartime and check that because vartime impl valid
         match (self.key[0].check(), self.key[1].check()) {
             (Ok(()), Ok(())) => Ok(()),
             _ => Err(SerializationError::InvalidData),
@@ -400,35 +374,39 @@ where
         let secret_key_vt = <SecretKeyVT<E> as CanonicalDeserialize>::deserialize_with_mode(
             reader, compress, validate,
         )?;
-        Ok(secret_key_vt.into_split_dirty())
+        Ok(secret_key_vt.to_split_dirty())
     }
 
     #[inline]
     fn deserialize_compressed<R: Read>(reader: R) -> Result<Self, SerializationError> {
         let secret_key_vt =
             <SecretKeyVT<E> as CanonicalDeserialize>::deserialize_compressed(reader)?;
-        Ok(secret_key_vt.into_split_dirty())
+        Ok(secret_key_vt.to_split_dirty())
     }
 
     #[inline]
     fn deserialize_uncompressed<R: Read>(mut reader: R) -> Result<Self, SerializationError> {
         let secret_key_vt =
             <SecretKeyVT<E> as CanonicalDeserialize>::deserialize_uncompressed(&mut reader)?;
-        Ok(secret_key_vt.into_split_dirty())
+        Ok(secret_key_vt.to_split_dirty())
     }
 
     #[inline]
     fn deserialize_uncompressed_unchecked<R: Read>(reader: R) -> Result<Self, SerializationError> {
         let secret_key_vt =
             <SecretKeyVT<E> as CanonicalDeserialize>::deserialize_uncompressed_unchecked(reader)?;
-        Ok(secret_key_vt.into_split_dirty())
+        Ok(secret_key_vt.to_split_dirty())
     }
 }
 
-//TODO: when const generic becomes stable we get the size from the trait and return
-//      constant size array so it can be implemented as follows
-// impl <E: EngineBLS> SerializableToBytes<{ E::SIGNATURE_SERIALIZED_SIZE }> for Signature<E> {}
-// impl <E: EngineBLS> SerializableToBytes<{ PublicKey::E::PUBLICKEY_SERIALIZED_SIZE }> for PublicKey<E>  {}
+// Note: the ideal shape would parameterize `SerializableToBytes` by a
+// const-generic byte size sourced from `E`, so callers get a fixed-size
+// array back:
+//     impl<E: EngineBLS> SerializableToBytes<{ E::SIGNATURE_SERIALIZED_SIZE }> for Signature<E> {}
+//     impl<E: EngineBLS> SerializableToBytes<{ E::PUBLICKEY_SERIALIZED_SIZE }> for PublicKey<E> {}
+// This requires `generic_const_exprs`, which is still unstable, so we
+// use a runtime `SERIALIZED_BYTES_SIZE` constant instead. Revisit if/when
+// that feature stabilizes.
 impl<E: EngineBLS> SerializableToBytes for Signature<E> {
     const SERIALIZED_BYTES_SIZE: usize = E::SIGNATURE_SERIALIZED_SIZE;
 }
@@ -449,26 +427,26 @@ impl<E: EngineBLS> SerializableToBytes for SecretKey<E> {
 /// Detached BLS Signature
 #[derive(Debug, CanonicalSerialize, CanonicalDeserialize)]
 pub struct Signature<E: EngineBLS>(pub E::SignatureGroup);
-// TODO: Serialization
 
-broken_derives!(Signature); // Actually the derive works for this one, not sure why.
+derive_with_bound!(Signature);
 
 impl<E: EngineBLS> Signature<E> {
     //const DESCRIPTION : &'static str = "A BLS signature";
 
     /// Verify a single BLS signature
     pub fn verify(&self, message: &Message, publickey: &PublicKey<E>) -> bool {
-        let publickey = E::prepare_public_key(publickey.0);
-        // TODO: Bentchmark these two variants
-        // Variant 1.  Do not batch any normalizations
+        let pk_affine: <E as EngineBLS>::PublicKeyGroupAffine = publickey.0.into();
+        //This is redundant if we have verified public key's PoP which reject out of subgroup keys
+        if !E::verify_public_key_in_public_key_subgroup(&pk_affine) {
+            return false;
+        }
+        let sig_affine: <E as EngineBLS>::SignatureGroupAffine = self.0.into();
+        if !E::verify_signature_in_signature_subgroup(&sig_affine) {
+            return false;
+        }
+        let publickey = E::prepare_public_key(pk_affine);
         let message = E::prepare_signature(message.hash_to_signature_curve::<E>());
-        let signature = E::prepare_signature(self.0);
-        // Variant 2.  Batch signature curve normalizations
-        //   let mut s = [E::hash_to_signature_curve(message), signature.0];
-        //   E::SignatureCurve::batch_normalization(&s);
-        //   let message = s[0].into_affine().prepare();
-        //   let signature = s[1].into_affine().prepare();
-        // TODO: Compare benchmarks on variants
+        let signature = E::prepare_signature(sig_affine);
         E::verify_prepared(signature, &[(publickey, message)])
     }
 }
@@ -476,7 +454,6 @@ impl<E: EngineBLS> Signature<E> {
 /// BLS Public Key
 #[derive(Debug, CanonicalSerialize, CanonicalDeserialize)]
 pub struct PublicKey<E: EngineBLS>(pub E::PublicKeyGroup);
-// TODO: Serialization
 
 // impl<E: EngineBLS> PublicKey<E> where E: DeserializePublicKey {
 //     pub fn i_have_checked_this_proof_of_possession(self) -> PublicKey<PoP<E>> {
@@ -484,8 +461,7 @@ pub struct PublicKey<E: EngineBLS>(pub E::PublicKeyGroup);
 //     }
 // }
 
-broken_derives!(PublicKey);
-//serialization!(PublicKey,PublicKeyGroup,EngineBLS,EngineBLS);
+derive_with_bound!(PublicKey);
 
 impl<E: EngineBLS> PublicKey<E> {
     //const DESCRIPTION : &'static str = "A BLS signature";
@@ -515,20 +491,19 @@ impl<E: EngineBLS> Clone for KeypairVT<E> {
     }
 }
 
-// TODO: Serialization
 impl<E: EngineBLS> KeypairVT<E> {
     /// Generate a `Keypair`
     pub fn generate<R: Rng>(rng: R) -> Self {
         let secret = SecretKeyVT::generate(rng);
-        let public = secret.into_public();
+        let public = secret.to_public();
         KeypairVT { secret, public }
     }
 }
 
 impl<E: EngineBLS> KeypairVT<E> {
     /// Convert into a `SecretKey` applying side channel protections.
-    pub fn into_split<R: Rng>(&self, rng: R) -> Keypair<E> {
-        let secret = self.secret.into_split(rng);
+    pub fn to_split<R: Rng>(&self, rng: R) -> Keypair<E> {
+        let secret = self.secret.to_split(rng);
         let public = self.public;
         Keypair { secret, public }
     }
@@ -570,12 +545,11 @@ impl<E: EngineBLS> Clone for Keypair<E> {
     }
 }
 
-// TODO: Serialization
 impl<E: EngineBLS> Keypair<E> {
     /// Generate a `Keypair`
     pub fn generate<R: Rng>(rng: R) -> Self {
         let secret = SecretKey::generate(rng);
-        let public = secret.into_public();
+        let public = secret.to_public();
         Keypair { secret, public }
     }
 }
@@ -583,8 +557,8 @@ impl<E: EngineBLS> Keypair<E> {
 impl<E: EngineBLS> Keypair<E> {
     /// Create a representative usable for operations lacking
     /// side channel protections.  
-    pub fn into_vartime(&self) -> KeypairVT<E> {
-        let secret = self.secret.into_vartime();
+    pub fn to_vartime(&self) -> KeypairVT<E> {
+        let secret = self.secret.to_vartime();
         let public = self.public;
         KeypairVT { secret, public }
     }
@@ -601,23 +575,7 @@ impl<E: EngineBLS> Keypair<E> {
 
     /// Sign a message using a Seedabale RNG created from a seed derived from the message and key
     pub fn sign(&mut self, message: &Message) -> Signature<E> {
-        let mut serialized_part1 = [0u8; 32];
-        let mut serialized_part2 = [0u8; 32];
-        self.secret.key[0]
-            .serialize_compressed(&mut serialized_part1[..])
-            .unwrap();
-        self.secret.key[1]
-            .serialize_compressed(&mut serialized_part2[..])
-            .unwrap();
-
-        let seed_digest = Sha256::new()
-            .chain_update(serialized_part1)
-            .chain_update(serialized_part2)
-            .chain_update(message.0);
-
-        let seed: [u8; 32] = seed_digest.finalize().into();
-
-        self.sign_with_rng::<StdRng>(message, SeedableRng::from_seed(seed))
+        self.secret.seeded_sign(message)
     }
 
     #[cfg(feature = "std")]
@@ -646,10 +604,6 @@ pub struct SignedMessage<E: EngineBLS> {
     pub publickey: PublicKey<E>,
     pub signature: Signature<E>,
 }
-// TODO: Serialization
-
-// borrow_wrapper!(Signature,SignatureGroup,signature);
-// borrow_wrapper!(PublicKey,PublicKeyGroup,publickey);
 
 impl<E: EngineBLS> PartialEq<Self> for SignedMessage<E> {
     fn eq(&self, other: &Self) -> bool {
@@ -664,13 +618,13 @@ impl<E: EngineBLS> Eq for SignedMessage<E> {}
 impl<'a, E: EngineBLS> Signed for &'a SignedMessage<E> {
     type E = E;
 
-    type M = Message;
+    type M = &'a Message;
     type PKG = PublicKey<E>;
 
-    type PKnM = ::core::iter::Once<(Message, PublicKey<E>)>;
-
-    fn messages_and_publickeys(self) -> Self::PKnM {
-        once((self.message.clone(), self.publickey)) // TODO:  Avoid clone
+    fn messages_and_publickeys(
+        self,
+    ) -> impl Iterator<Item = (&'a Message, PublicKey<E>)> + ExactSizeIterator {
+        once((&self.message, self.publickey))
     }
 
     fn signature(&self) -> Signature<E> {
@@ -685,6 +639,7 @@ impl<'a, E: EngineBLS> Signed for &'a SignedMessage<E> {
 impl<E: EngineBLS> SignedMessage<E> {
     #[cfg(test)]
     pub fn verify_slow(&self) -> bool {
+        use ark_ec::AffineRepr;
         let g1_one = <E::PublicKeyGroup as CurveGroup>::Affine::generator();
         let message = self.message.hash_to_signature_curve::<E>().into_affine();
         E::pairing(g1_one, self.signature.0.into_affine())
@@ -728,16 +683,15 @@ impl<E: EngineBLS> SignedMessage<E> {
         seed
     }
 
-    /* TODO: Switch to this whenever pairing upgrades to rand 0.5 or later
     /// VRF output converted into any `SeedableRng`.
     ///
     /// If you are not the signer then you must verify the VRF before calling this method.
     ///
-    /// We expect most users would prefer the less generic `VRFInOut::make_chacharng` method.
-    pub fn make_rng<R: SeedableRng>(&self, context: &[u8]) -> R {
+    /// Distinct contexts produce independent output streams. Most callers
+    /// should prefer the concrete `make_chacharng` helper below.
+    pub fn make_rng<R: rand::SeedableRng>(&self, context: &[u8]) -> R {
         R::from_seed(self.make_bytes::<R::Seed>(context))
     }
-    */
 
     /// VRF output converted into a `ChaChaRng`.
     ///
@@ -751,8 +705,7 @@ impl<E: EngineBLS> SignedMessage<E> {
     /// ["Ouroboros Praos: An adaptively-secure, semi-synchronous proof-of-stake blockchain"](https://eprint.iacr.org/2017/573.pdf)
     /// by Bernardo David, Peter Gazi, Aggelos Kiayias, and Alexander Russell.
     pub fn make_chacharng(&self, context: &[u8]) -> ChaCha8Rng {
-        let bytes = self.make_bytes::<[u8; 32]>(context);
-        ChaCha8Rng::from_seed(bytes)
+        self.make_rng(context)
     }
 }
 
@@ -823,7 +776,7 @@ mod tests {
 
         let deserialized_secret_key =
             SecretKey::<UsualBLS<E, P>>::from_bytes(&serialized_secret_key).unwrap();
-        let reconstructed_public_key = deserialized_secret_key.into_public();
+        let reconstructed_public_key = deserialized_secret_key.to_public();
         assert!(sig.verify(&good_message, &reconstructed_public_key));
     }
 
@@ -869,21 +822,21 @@ mod tests {
         let good_sig = bls_engine_serialization_test::<UsualBLS<E, P>, E, P>(good_sig0);
         assert!(good_sig.verify_slow());
 
-        let keypair_vt = keypair.into_vartime();
-        assert!(keypair_vt.secret.0 == keypair_vt.into_split(thread_rng()).into_vartime().secret.0);
+        let keypair_vt = keypair.to_vartime();
+        assert!(keypair_vt.secret.0 == keypair_vt.to_split(thread_rng()).to_vartime().secret.0);
         assert!(good_sig == keypair.signed_message(&good));
         assert!(good_sig == keypair_vt.signed_message(&good));
 
         let bad = Message::new(b"ctx", b"wrong message");
         let bad_sig0 = keypair.signed_message(&bad);
         let bad_sig = bls_engine_serialization_test::<UsualBLS<E, P>, E, P>(bad_sig0);
-        assert!(bad_sig == keypair.into_vartime().signed_message(&bad));
+        assert!(bad_sig == keypair.to_vartime().signed_message(&bad));
 
         assert!(bad_sig.verify());
 
         let another = Message::new(b"ctx", b"another message");
         let another_sig = keypair.signed_message(&another);
-        assert!(another_sig == keypair.into_vartime().signed_message(&another));
+        assert!(another_sig == keypair.to_vartime().signed_message(&another));
         assert!(another_sig.verify());
 
         assert!(

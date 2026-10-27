@@ -57,6 +57,13 @@ impl<G: NonGLVCurve> DualScalarMultiplication for G {
         let start = Instant::now();
         let mut res = Self::zero();
 
+        // Short-circuit the trivial (0, 0) case up front so the
+        // leading-zero-skipping loop below is only entered when at
+        // least one scalar is nonzero.
+        if first_scalar.is_zero() && second_scalar.is_zero() {
+            return res;
+        }
+
         let first_scalar_as_big_int = first_scalar.into_bigint();
         let second_scalar_as_big_int = second_scalar.into_bigint();
 
@@ -67,30 +74,23 @@ impl<G: NonGLVCurve> DualScalarMultiplication for G {
         #[cfg(feature = "benchmark")]
         println!("[Shamir] scalar_to_bigint: {:?}", start.elapsed());
 
-        // Skip the leading zero bits
+        // Skip the leading zero bits. At least one scalar is nonzero
+        // (checked above), so the loop is guaranteed to break at some
+        // bit position — including position 0 when a scalar is 1.
         #[cfg(feature = "benchmark")]
         let start = Instant::now();
         while n > 0 {
             n -= 1;
             let part = n / 64;
             let bit = n - (64 * part);
-            if n1 > n {
-                if first_scalar_as_big_int.as_ref()[part] & (1 << bit) > 0 {
-                    break;
-                }
-            }
-            if n2 > n {
-                if second_scalar_as_big_int.as_ref()[part] & (1 << bit) > 0 {
-                    break;
-                }
+            if (n1 > n && first_scalar_as_big_int.as_ref()[part] & (1 << bit) > 0)
+                || (n2 > n && second_scalar_as_big_int.as_ref()[part] & (1 << bit) > 0)
+            {
+                break;
             }
         }
         #[cfg(feature = "benchmark")]
         println!("[Shamir] skip_leading_zeros: {:?}", start.elapsed());
-
-        if n == 0 {
-            return res;
-        }
 
         #[cfg(feature = "benchmark")]
         let start = Instant::now();
@@ -243,6 +243,11 @@ impl<C: BLSGLVConfig> DualScalarMultiplication for Projective<C> {
         #[cfg(feature = "benchmark")]
         let total_start = Instant::now();
 
+        // Short-circuit the trivial (0, 0) case up front.
+        if first_scalar.is_zero() && second_scalar.is_zero() {
+            return Self::zero();
+        }
+
         // GLV decompose both scalars
         #[cfg(feature = "benchmark")]
         let start = Instant::now();
@@ -314,7 +319,10 @@ impl<C: BLSGLVConfig> DualScalarMultiplication for Projective<C> {
 
         let mut n = core::cmp::max(core::cmp::max(n1, n2), core::cmp::max(n3, n4));
 
-        // Skip the leading zero bits
+        // Skip the leading zero bits. At least one of the original
+        // scalars is nonzero (checked at the top of the function), so
+        // GLV decomposition yields at least one nonzero component and
+        // the loop is guaranteed to break at some bit position.
         #[cfg(feature = "benchmark")]
         let start = Instant::now();
         while n > 0 {
@@ -331,10 +339,6 @@ impl<C: BLSGLVConfig> DualScalarMultiplication for Projective<C> {
         }
         #[cfg(feature = "benchmark")]
         println!("[GLV] skip_leading_zeros: {:?}", start.elapsed());
-
-        if n == 0 {
-            return Self::zero();
-        }
 
         let mut res = Self::zero();
 
@@ -642,5 +646,70 @@ mod tests {
         let result = G1::dual_scalar_mul(&a, &b, &p, &q, None);
         let expected = p * a + q * b;
         assert_eq!(result, expected);
+    }
+
+    // Test that dual_scalar_mul does not treat "only bit 0 is non-zero"
+    // and "all bits are zero" cases as the same
+    //
+    // These tests iterate the full `{0, 1, 2, 3}²` grid on both the
+    // `None` and precomputed-table paths to lock the fix in.
+
+    #[test]
+    #[cfg(feature = "experimental")]
+    fn test_non_glv_dual_scalar_mul_small_scalar_boundary() {
+        // `SWProjective` implements `NonGLVCurve` hence `SW::dual_scalar_mul`
+        // routes through the non-GLV blanket impl.
+        type SW = ark_sw_by_bls12_381::SWProjective;
+        let rng = &mut thread_rng();
+        let p = SW::rand(rng);
+        let q = SW::rand(rng);
+        let precomputed = [p + q];
+
+        for a in 0..4u64 {
+            for b in 0..4u64 {
+                let a_s = <SW as PrimeGroup>::ScalarField::from(a);
+                let b_s = <SW as PrimeGroup>::ScalarField::from(b);
+                let want = p * a_s + q * b_s;
+
+                let got_none = SW::dual_scalar_mul(&a_s, &b_s, &p, &q, None);
+                assert_eq!(got_none, want, "({}, {}) mismatch, no table", a, b);
+
+                let got_some =
+                    SW::dual_scalar_mul(&a_s, &b_s, &p, &q, Some(&precomputed));
+                assert_eq!(got_some, want, "({}, {}) mismatch, precomputed table", a, b);
+            }
+        }
+    }
+
+    #[test]
+    fn test_glv_dual_scalar_mul_small_scalar_boundary() {
+        // `ark_bls12_381::g1::Config` implements `BLSGLVConfig` (see the
+        // impl near the top of this file), so `dual_scalar_mul`
+        // routes through the GLV blanket impl.
+        type G1 = Projective<ark_bls12_381::g1::Config>;
+        let rng = &mut thread_rng();
+        let g = G1::generator();
+        let pk = G1::rand(rng);
+        let table = StrausPrecomputedTable::new(g, pk);
+        assert_eq!(table.table.len(), 256);
+
+        for a in 0..4u64 {
+            for b in 0..4u64 {
+                let a_s = <G1 as PrimeGroup>::ScalarField::from(a);
+                let b_s = <G1 as PrimeGroup>::ScalarField::from(b);
+                let want = g * a_s + pk * b_s;
+
+                let got_none = G1::dual_scalar_mul(&a_s, &b_s, &g, &pk, None);
+                assert_eq!(got_none, want, "({}, {}) mismatch, no table", a, b);
+
+                let got_some =
+                    G1::dual_scalar_mul(&a_s, &b_s, &g, &pk, Some(&table.table));
+                assert_eq!(
+                    got_some, want,
+                    "({}, {}) mismatch, precomputed 256-element table",
+                    a, b
+                );
+            }
+        }
     }
 }

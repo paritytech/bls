@@ -91,7 +91,6 @@
 #[cfg(doctest)]
 pub struct ReadmeDoctests;
 
-
 extern crate ark_serialize;
 extern crate ark_serialize_derive;
 
@@ -105,6 +104,34 @@ extern crate sha3;
 
 extern crate alloc;
 
+/// Emit `Clone`, `Copy`, `PartialEq`, and `Eq` for a tuple wrapper over an
+/// `E: EngineBLS` parameter. Needed because Rust's built-in `#[derive]`
+/// synthesises `where` clauses (e.g. `E: Clone`) that do not hold for the
+/// engine type itself, so the derived impls fail to compile. This helper
+/// hand-writes the impls with the correct `E: EngineBLS` bound. Internal
+/// to the crate.
+#[macro_export]
+#[doc(hidden)]
+macro_rules! derive_with_bound {
+    ($wrapper:tt) => {
+        impl<E: EngineBLS> Clone for $wrapper<E> {
+            fn clone(&self) -> Self {
+                $wrapper(self.0)
+            }
+        }
+        impl<E: EngineBLS> Copy for $wrapper<E> {}
+
+        impl<E: EngineBLS> PartialEq<Self> for $wrapper<E> {
+            fn eq(&self, other: &Self) -> bool {
+                self.0.eq(&other.0)
+            }
+        }
+
+        impl<E: EngineBLS> Eq for $wrapper<E> {}
+    };
+}
+
+use ark_ff::Zero;
 use core::borrow::Borrow;
 use digest::DynDigest;
 
@@ -119,8 +146,7 @@ pub mod serialize;
 pub mod single;
 pub mod verifiers;
 
-pub mod multi_pop_aggregator;
-pub mod single_pop_aggregator;
+pub mod pop_aggregator;
 
 #[cfg(feature = "experimental")]
 pub mod experimental;
@@ -138,7 +164,50 @@ pub use single::{Keypair, KeypairVT, PublicKey, SecretKey, SecretKeyVT, Signatur
 
 use alloc::vec::Vec;
 
-/// Internal message hash size.  
+/// Public key types usable in the [`Signed`] trait.
+///
+/// Standard BLS uses [`PublicKey<E>`] which carries only the key in the
+/// public-key group.  Nugget-style schemes use [`NuggetDoublePublicKey<E>`]
+/// (or similar) which carries keys in **both** curve groups and thus
+/// supports auxiliary-key verification.
+pub trait GeneralizedBLSPublicKey<E: EngineBLS> {
+    /// The public key in the public-key group.
+    fn public_key(&self) -> PublicKey<E>;
+
+    /// The auxiliary public key in the signature group.
+    /// Returns zero by default (no auxiliary key).
+    fn public_key_in_signature_group(&self) -> nugget::PublicKeyInSignatureGroup<E> {
+        nugget::PublicKeyInSignatureGroup(E::SignatureGroup::zero())
+    }
+}
+
+impl<E: EngineBLS> GeneralizedBLSPublicKey<E> for PublicKey<E> {
+    fn public_key(&self) -> PublicKey<E> {
+        *self
+    }
+}
+
+impl<E: EngineBLS> GeneralizedBLSPublicKey<E>
+    for (PublicKey<E>, nugget::PublicKeyInSignatureGroup<E>)
+{
+    fn public_key(&self) -> PublicKey<E> {
+        self.0
+    }
+    fn public_key_in_signature_group(&self) -> nugget::PublicKeyInSignatureGroup<E> {
+        self.1
+    }
+}
+
+impl<'a, E: EngineBLS, T: GeneralizedBLSPublicKey<E>> GeneralizedBLSPublicKey<E> for &'a T {
+    fn public_key(&self) -> PublicKey<E> {
+        (*self).public_key()
+    }
+    fn public_key_in_signature_group(&self) -> nugget::PublicKeyInSignatureGroup<E> {
+        (*self).public_key_in_signature_group()
+    }
+}
+
+/// Internal message hash size.
 ///
 /// We choose 256 bits here so that birthday bound attacks cannot
 /// find messages with the same hash.
@@ -215,7 +284,8 @@ impl Message {
     fn cipher_suite<E: EngineBLS>(&self) -> Vec<u8> {
         let id = match self.2 {
             MessageType::ProofOfPossession => PROOF_OF_POSSESSION_ID,
-            _ => NORMAL_MESSAGE_SIGNATURE_ID,
+            MessageType::NormalAssumingPoP => NORMAL_MESSAGE_SIGNATURE_ID,
+            MessageType::NormalBasic => NORMAL_MESSAGE_SIGNATURE_ID,
         };
 
         let h2c_suite_id = [
@@ -228,7 +298,7 @@ impl Message {
         let sc_tag = match self.2 {
             MessageType::ProofOfPossession => POP_MESSAGE,
             MessageType::NormalAssumingPoP => NORMAL_MESSAGE_SIGNATURE_ASSUMING_POP,
-            _ => NORMAL_MESSAGE_SIGNATURE_BASIC,
+            MessageType::NormalBasic => NORMAL_MESSAGE_SIGNATURE_BASIC,
         };
 
         [id, &h2c_suite_id[..], sc_tag].concat()
@@ -236,12 +306,6 @@ impl Message {
 
     pub fn hash_to_signature_curve<E: EngineBLS>(&self) -> E::SignatureGroup {
         E::hash_to_signature_curve(&[&self.cipher_suite::<E>()[..], &self.1[..]].concat()[..])
-    }
-}
-
-impl<'a> From<&'a [u8]> for Message {
-    fn from(x: &[u8]) -> Message {
-        Message::new(b"", x)
     }
 }
 
@@ -253,29 +317,20 @@ impl<'a> From<&'a [u8]> for Message {
 /// We shall make `messages_and_publickeys` take `&sefl` and
 /// remove these limitations in the future once ATCs stabalize,
 /// thus removing `PKG`.  See [Rust RFC 1598](https://github.com/rust-lang/rfcs/blob/master/text/1598-generic_associated_types.md)
-/// We shall eventually remove MnPK entirely whenever `-> impl Trait`
-/// in traits gets stabalized.  See [Rust RFCs 1522, 1951, and 2071](https://github.com/rust-lang/rust/issues/34511
 pub trait Signed: Sized {
     type E: EngineBLS;
 
     /// Return the aggregated signature
     fn signature(&self) -> Signature<Self::E>;
 
-    type M: Borrow<Message>; // = Message;
-    type PKG: Borrow<PublicKey<Self::E>>; // = PublicKey<Self::E>;
-
-    /// Iterator over, messages and public key reference pairs.
-    type PKnM: Iterator<Item = (Self::M, Self::PKG)> + ExactSizeIterator;
-    // type PKnM<'a>: Iterator<Item = (
-    //    &'a <<Self as Signed<'a>>::E as EngineBLS>::PublicKeyGroup,
-    //    &'a Self::M,
-    // )> + DoubleEndedIterator + ExactSizeIterator + 'a;
+    type M: Borrow<Message>;
+    type PKG: GeneralizedBLSPublicKey<Self::E>;
 
     /// Returns an iterator over messages and public key reference for
     /// pairings, often only partially aggregated.
-    fn messages_and_publickeys(self) -> Self::PKnM;
-    // fn messages_and_publickeys<'a>(&'s self) -> PKnM<'a>
-    // -> impl Iterator<Item = (&'a Self::M, &'a Self::E::PublicKeyGroup)> + 'a;
+    fn messages_and_publickeys(
+        self,
+    ) -> impl Iterator<Item = (Self::M, Self::PKG)> + ExactSizeIterator;
 
     /// Appropriate BLS signature verification for the `Self` type.
     ///
