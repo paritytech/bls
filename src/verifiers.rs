@@ -676,10 +676,7 @@ mod tests {
         let q_g1 = cofactor_subgroup_g1();
         let g2_gen = G2Affine::generator();
         let p1 = Bls12_381::pairing(q_g1, g2_gen);
-        if !p1.0.is_one() {
-            eprintln!("e(Q_g1, g2_gen) = {:?} (expected 1)", p1.0);
-        }
-        assert!(p1.0.is_one(), "e(Q_g1, g2_gen) != 1");
+        assert!(p1.0.is_one(), "e(Q_g1, g2_gen) = {:?} != 1", p1.0);
     }
 
     /// With only the G1-cofactor component spliced into the public key,

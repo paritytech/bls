@@ -1,12 +1,19 @@
 # bls [![Crates.io](https://img.shields.io/crates/v/w3f-bls.svg)](https://crates.io/crates/w3f-bls) #
 
-Boneh-Lynn-Shacham (BLS) signatures have slow signing, very slow verification, require slow and much less secure pairing friendly curves, and tend towards dangerous malleability.  Yet, BLS permits a diverse array of signature aggregation options far beyond any other known signature scheme, which makes BLS a preferred scheme for voting in consensus algorithms and for threshold signatures. 
+Boneh-Lynn-Shacham (BLS) signatures have slow signing, very slow verification, require pairing-friendly curves with a lower security margin at comparable sizes, and tend towards dangerous malleability.  Yet, BLS permits a diverse array of signature aggregation options far beyond any other known signature scheme, which makes BLS a preferred scheme for voting in consensus algorithms and for threshold signatures.
 
-In this crate, we take a largely unified approach to aggregation techniques and verifier optimisations for BLS signature:  We support the [BLS12-381](https://z.cash/blog/new-snark-curve.html) and [BLS12-377](https://eprint.iacr.org/2018/962.pdf) (Barreto-Lynn-Scott) curves via Arkworks traits, but abstract the pairing so that developers can choose their preferred orientation for BLS signatures. We provide aggregation techniques based on messages being distinct, on proofs-of-possession, and on delinearization, although we do not provide all known optimisations for delinearization.
+In this crate, we take a largely unified approach to aggregation techniques and verifier optimisations for BLS signature:  We support the [BLS12-381](https://z.cash/blog/new-snark-curve.html) and [BLS12-377](https://eprint.iacr.org/2018/962.pdf) (Barreto-Lynn-Scott) curves via Arkworks traits, but abstract the pairing so that developers can choose their preferred orientation for BLS signatures. 
 
-We provide implementation of generation and verification proof-of-possession based on Schnorr Signature which is faster than using BLS Signature itself for this task.
+The main maintained aggregation path provided by the library is based on proofs-of-possession; experimental implementations of aggregation based on the distinct-message and delinearized strategies are provided for research and comparison purposes only and are niether audited nor currently maintained.
 
-We cannot claim these abstractions provide miss-use resistance, but they at least structure the problem, provide some guidlines, and maximize the relevance of warnings present in the documentation.
+We only provide proof-of-possession for NuggetBLS scheme in `NuggetBLSPoP`. This a Schnorr-style DLEQ check fused into a pairing verification that binds the Nugget double public key's two representations (G1 and G2) to a single secret and hence force a PoP verification.  An experimental standalone Schnorr-signature PoP (`experimental::schnorr_pop::SchnorrPoP`) is also provided for research and comparison purposes; it has not been audited.
+
+
+## ⚠ Proof-of-Possession is a caller-side precondition
+
+The abstractions provided are not misuse-resistant. In particular, the crate's verification and aggregation primitives — including `verify_*`, `SignatureAggregatorAssumingPoP`, and the Chaum-Pedersen verifiers — **do not themselves validate that a public key has an accompanying proof-of-possession**. The onus is on the caller to establish PoP either by explicitly verifying the PoP proof (using the `ProofOfPossession` API) or by consulting a trusted upstream source (e.g. an on-chain registry) before invoking these APIs.
+
+**Using the aggregation and verification primitives on public keys that have not been PoP-verified by the surrounding system exposes the user to various types of attacks, including classical rogue-key, infinity-point, and low-order-subgroup attacks.**
 
 ## Documentation
 
@@ -21,61 +28,13 @@ let sig = keypair.sign(&message);
 assert!( sig.verify(&message,&keypair.public) );
 ```
 
-In this example, `sig` is a `Signature<ZBLS>` which only contains signature. One can use `Keypair::signed_message` method which returns a `SignedMessage` struct that contains the message hash, the signer's public key, and of course the signature, but one should usually detach these constituents for wire formats.
+In this example, `sig` is a `Signature<ZBLS>` which only contains the signature.  One can use `Keypair::signed_message`, which returns a `SignedMessage` struct containing the message hash, the signer's public key, and the signature, though one should usually detach these constituents for wire formats.
 
-Aggregated and blind signatures are almost the only reasons anyone would consider using BLS signatures, so we focus on aggregation here.  We assume for brevity that `sigs` is an array of `SignedMessage`s, as one might construct like 
+### Aggregation with proof-of-possession
 
-As a rule, aggregation that requires distinct messages still requires one miller loop step per message, so aggregate signatures have rather slow verification times.  You can nevertheless achieve quite small signature sizes like
+Aggregation is the main reason to use BLS, so we focus on the PoP-based aggregation path here.  The following example demonstrates generating and verifying proofs-of-possession and then using `SignatureAggregatorAssumingPoP` to batch and verify multiple BLS signatures.  As a rule, aggregation over distinct messages still requires one Miller-loop step per message, so these aggregate signatures have slow verification times but small signature sizes.
 
-```rust
-use w3f_bls::{Keypair, Message, Signed, ZBLS};
-use w3f_bls::experimental::distinct::DistinctMessages;
-use rand::{SeedableRng, rngs::StdRng};
-
-let mut keypairs = [
-	Keypair::<ZBLS>::generate(StdRng::from_seed([0u8; 32])),
-	Keypair::<ZBLS>::generate(StdRng::from_seed([1u8; 32])),
-];
-let msgs = [
-	"The ships",
-	"hung in the sky",
-	"in much the same way",
-	"that bricks don't.",
-]
-.iter()
-.map(|m| Message::new(b"Some context", m.as_bytes()))
-.collect::<Vec<_>>();
-let sigs = msgs
-	.iter()
-	.zip(keypairs.iter_mut())
-	.map(|(m, k)| k.signed_message(m))
-	.collect::<Vec<_>>();
-
-let dms = sigs
-	.iter()
-	.try_fold(DistinctMessages::<ZBLS>::new(), |dm, sig| dm.add(sig))
-	.unwrap();
-let signature = <&DistinctMessages<ZBLS> as Signed>::signature(&&dms);
-
-let publickeys = keypairs.iter().map(|k| k.public).collect::<Vec<_>>();
-let mut dms = msgs
-	.into_iter()
-	.zip(publickeys)
-	.try_fold(
-		DistinctMessages::<ZBLS>::new(),
-		|dm, (message, publickey)| dm.add_message_n_publickey(message, publickey),
-	)
-	.unwrap();
-dms.add_signature(&signature);
-assert!(dms.verify())
-```
-Anyone who receives the already aggregated signature along with a list of messages and public keys might reconstruct the signature as shown in the above example.
-
-We recommend distinct message aggregation like this primarily for verifying proofs-of-possession, meaning checking the self certificates for numerous keys.
-
-Assuming you already have proofs-of-possession, then you'll want to do aggregation with `BitPoPSignedMessage` or some variant tuned to your use case.  We recommend more care when using `SignatureAggregatorAssumingPoP` because it provides no mechanism for checking a proof-of-possession table.
-
-The library offers method for generating and verifying proof of positions both based on BLS and [Schnorr Signature](https://en.wikipedia.org/wiki/Schnorr_signature) which is faster to verify than when using BLS signature itself as proof of position. The following example demonstrate how to generate and verify proof of positions and then using `SignatureAggregatorAssumingPoP` to batch and verify multiple BLS signatures.
+> **Note:** for brevity, the example below uses the experimental standalone `SchnorrPoP` constructor.
 
 ```rust
 use w3f_bls::{Keypair,PublicKey,ZBLS,Message,Signed, ProofOfPossessionGenerator, ProofOfPossession, experimental::schnorr_pop::{SchnorrPoP}, pop_aggregator::SignatureAggregatorAssumingPoP};
@@ -98,11 +57,9 @@ let batch_poped = msgs.iter().zip(publickeys).zip(sigs).fold(
 assert!(batch_poped.verify())
 ```
 
-If you lack proofs-of-possesion, then delinearized approaches are provided in the `delinear` module, but such schemes might require a more customised approach. However, note that currently only aggeration assuming proof of possession is maintained and the other strategies are experimental. 
-
 ### Efficient Aggregatable BLS Signatures with Chaum-Pedersen Proofs
 
-The scheme introduced in [`our recent paper`](https://eprint.iacr.org/2022/1611) is implemented in [`chaum_pederson_signature.rs`](src/chaum_pederson_signature.rs) using `ChaumPedersonSigner` and `ChaumPedersonVerifier` traits and in [`pop.rs`](src/pop.rs) using `add_auxiliary_public_key` and `verify_using_aggregated_auxiliary_public_keys` functions which is demonestrated in the following example:
+The scheme introduced in [`our recent paper`](https://eprint.iacr.org/2022/1611) is implemented across [`chaum_pedersen_signature.rs`](src/chaum_pedersen_signature.rs) (via the `ChaumPedersenSigner` and `ChaumPedersenVerifier` traits) and [`nugget.rs`](src/nugget.rs), with aggregation in [`pop_aggregator.rs`](src/pop_aggregator.rs) via the `add_message_n_publickey` and `verify_using_aggregated_auxiliary_public_keys` methods, as demonstrated in the following example:
 ```rust
 use sha2::Sha256;
 use ark_bls12_377::Bls12_377;
@@ -140,15 +97,17 @@ assert!(
 
 ### Hash to Curve
 
-In order to sign a message, the library needs to hash the message as a point on the signature curve. While `BLSEngine` trait is agnostic about `MapToSignatureCurve` method, our implementation of BLS12-381 (`ZBLS`) and BLS12-377(`BLS377`) specifically uses Wahby and Boneh hash to curve method described in Section of 6.6.3 of https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/.
+In order to sign a message, the library needs to hash the message as a point on the signature curve.  While the `BLSEngine` trait is agnostic about the `MapToSignatureCurve` method, our implementations of BLS12-381 (`ZBLS`) and BLS12-377 (`BLS377`) specifically use the Wahby and Boneh hash-to-curve method described in Section 6.6.3 of https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/.
 
 ## Experimental code
 
-Multiple flavors of BLS signature batching (bit field, delinearized batching, batching only for distinct messages), as well as Schnorr Proof of Possession, and Triple Nugget BLS with various sister curves have been implemented, purely for comparison and research purposes. This code resides in the [`src/experimental`] and [`experimental_curves`] folders behind the `--experimental` feature flag. It has not been audited and is not intended to be used in production.
+Multiple flavors of BLS signature batching — bit-field, delinearized batching, and batching only for distinct messages (`experimental::distinct` and `delinear`) — as well as Schnorr Proof of Possession and Triple Nugget BLS with various sister curves, have been implemented purely for comparison and research purposes.  This code resides in [`src/experimental`](src/experimental) and [`experimental_curves`](experimental_curves) behind the `--experimental` feature flag.  **It has not been audited and is not intended to be used in production**; new integrations should use the PoP-based aggregation shown above.
 
 ## Security Warnings
 
 This library does not make any guarantees about constant-time operations, memory access patterns, or resistance to side-channel attacks.
+
+See also the Proof-of-Possession precondition noted near the top of this README: callers are responsible for ensuring every public key passed to a verification or aggregation primitive has had its PoP verified upstream.
 
 ## License
 
@@ -165,4 +124,3 @@ Unless you explicitly state otherwise, any contribution intentionally
 submitted for inclusion in the work by you, as defined in the Apache-2.0
 license, shall be dual licensed as above, without any additional terms or
 conditions.
-
