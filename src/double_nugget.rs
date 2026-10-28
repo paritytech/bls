@@ -23,6 +23,7 @@ use ark_serialize::{
 use digest::FixedOutputReset;
 use sha2::Sha256;
 
+use crate::NuggetPublicKey;
 use crate::chaum_pedersen_signature::ChaumPedersenVerifier;
 use crate::dual_scalar_mul::DualScalarMultiplication;
 use crate::nugget::{
@@ -31,7 +32,6 @@ use crate::nugget::{
 };
 use crate::serialize::SerializableToBytes;
 use crate::single::{Keypair, KeypairVT, PublicKey, SecretKeyVT};
-use crate::NuggetPublicKey;
 use crate::{EngineBLS, Message};
 
 /// BLS Public Key with sub keys in both groups.
@@ -194,7 +194,10 @@ where
 {
     fn to_nugget_double_public_key(&self) -> NuggetDoublePublicKey<E> {
         NuggetDoublePublicKey::new(
-            <SecretKeyVT<E> as NuggetBLS::<E, E::SignatureGroup>>::to_public_key_in_signature_group(self).0,
+            <SecretKeyVT<E> as NuggetBLS<E, E::SignatureGroup>>::to_public_key_in_signature_group(
+                self,
+            )
+            .0,
             self.to_public().0,
         )
     }
@@ -238,7 +241,7 @@ mod tests {
     use ark_ec::hashing::map_to_curve_hasher::MapToCurve;
     use ark_ec::pairing::Pairing as PairingEngine;
 
-    use crate::{serialize::SerializableToBytes, EngineBLS, Message, Signed, TinyBLS};
+    use crate::{EngineBLS, Message, Signed, TinyBLS, serialize::SerializableToBytes};
 
     fn double_nugget_public_key_serialization_test<
         EB: EngineBLS<Engine = E>,
@@ -301,7 +304,7 @@ mod tests {
         );
 
         assert!(good != bad, "good == bad");
-        assert!(good_sig.0 .0 != bad_sig.0 .0, "good sig == bad sig");
+        assert!(good_sig.0.0 != bad_sig.0.0, "good sig == bad sig");
 
         assert!(
             !bad_sig.verify(&good, &pk),

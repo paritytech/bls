@@ -14,12 +14,12 @@ use ark_serialize::{
 use digest::FixedOutputReset;
 use sha2::Sha256;
 
+use crate::NuggetPublicKey;
 use crate::chaum_pedersen_signature::ChaumPedersenVerifier;
 use crate::dual_scalar_mul::{EngineBLSGLV, StrausPrecomputedTable};
 use crate::nugget::{NuggetSignature, PublicKeyInSignatureGroup, PublicKeyInSisterGroup};
 use crate::serialize::SerializableToBytes;
 use crate::single::PublicKey;
-use crate::NuggetPublicKey;
 use crate::{EngineBLS, Message};
 
 /// BLS Public Key with sub keys in both groups, optimized for curves supporting GLV endomorphism.
@@ -194,7 +194,7 @@ mod tests {
     use ark_ec::hashing::map_to_curve_hasher::MapToCurve;
     use ark_ec::pairing::Pairing as PairingEngine;
 
-    use crate::{serialize::SerializableToBytes, EngineBLS, Message, Signed, TinyBLS};
+    use crate::{EngineBLS, Message, Signed, TinyBLS, serialize::SerializableToBytes};
 
     fn double_nugget_public_key_glv_serialization_test<
         EB: EngineBLSGLV<Engine = E>,
@@ -215,8 +215,7 @@ mod tests {
             ..
         } = x;
 
-        let publickey =
-            NuggetDoublePublicKeyGLV::<EB>::from_bytes(&publickey.to_bytes()).unwrap();
+        let publickey = NuggetDoublePublicKeyGLV::<EB>::from_bytes(&publickey.to_bytes()).unwrap();
         let signature = NuggetSignature::<EB>::from_bytes(&signature.to_bytes()).unwrap();
 
         DoubleSignedMessageGLV {
@@ -255,8 +254,14 @@ mod tests {
             <Keypair<EB> as NuggetBLS<EB, EB::SignatureGroup>>::sign(&mut keypair, &bad).into();
 
         // Route 1: verify through the plain pubkey (GLV scalar-mul, runtime 16-elt table).
-        assert!(good_sig.verify(&good, &pk), "plain pk + good sig should verify");
-        assert!(bad_sig.verify(&bad, &pk), "plain pk + bad sig should verify");
+        assert!(
+            good_sig.verify(&good, &pk),
+            "plain pk + good sig should verify"
+        );
+        assert!(
+            bad_sig.verify(&bad, &pk),
+            "plain pk + bad sig should verify"
+        );
         assert!(
             !bad_sig.verify(&good, &pk),
             "plain pk + wrong-message sig should fail"
@@ -285,7 +290,7 @@ mod tests {
         );
 
         assert!(good != bad, "good == bad");
-        assert!(good_sig.0 .0 != bad_sig.0 .0, "good sig == bad sig");
+        assert!(good_sig.0.0 != bad_sig.0.0, "good sig == bad sig");
     }
 
     #[test]

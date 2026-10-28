@@ -20,11 +20,11 @@ fn main() {
 
         //generate BLS only PoP
         let proof_pair = <dyn ProofOfPossessionGenerator<
-            TinyBLS381,
-            Sha256,
-            NuggetDoublePublicKey<TinyBLS381>,
-            NuggetBLSPoP<TinyBLS381>,
-        >>::generate_pok(&mut keypair);
+                TinyBLS381,
+                Sha256,
+                NuggetDoublePublicKey<TinyBLS381>,
+                NuggetBLSPoP<TinyBLS381>,
+            >>::generate_pok(&mut keypair);
 
         println!(
             "Nugget BLS Proof of possession of {:?} is {:?}",
@@ -34,11 +34,11 @@ fn main() {
 
         //generate BLS and CP PoP
         let proof_pair = <dyn ProofOfPossessionGenerator<
-            TinyBLS381,
-            Sha256,
-            NuggetDoublePublicKey<TinyBLS381>,
-            NuggetBLSnCPPoP<TinyBLS381>,
-        >>::generate_pok(&mut keypair);
+                TinyBLS381,
+                Sha256,
+                NuggetDoublePublicKey<TinyBLS381>,
+                NuggetBLSnCPPoP<TinyBLS381>,
+            >>::generate_pok(&mut keypair);
 
         println!(
             "Nugget BLS and CP Proof of possession of {:?} is {:?}",

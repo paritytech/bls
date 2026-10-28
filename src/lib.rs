@@ -267,8 +267,8 @@ impl Message {
 
     fn compute_internal_hash(context: &[u8], message: &[u8]) -> [u8; MESSAGE_SIZE] {
         use sha3::{
-            digest::{ExtendableOutput, Update, XofReader},
             Shake128,
+            digest::{ExtendableOutput, Update, XofReader},
         };
         let mut h = Shake128::default();
         h.update(context);

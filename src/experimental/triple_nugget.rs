@@ -116,11 +116,8 @@ pub trait TripleNuggetBLS<
     fn to_nugget_triple_public_key(&self) -> NuggetTriplePublicKey<E, S>;
 }
 
-impl<
-        E: EngineBLS,
-        S: CurveGroup + DualScalarMultiplication,
-        H: FixedOutputReset + Default + Clone,
-    > ChaumPedersenVerifier<E, S, H> for NuggetTriplePublicKey<E, S>
+impl<E: EngineBLS, S: CurveGroup + DualScalarMultiplication, H: FixedOutputReset + Default + Clone>
+    ChaumPedersenVerifier<E, S, H> for NuggetTriplePublicKey<E, S>
 where
     S: PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes,
     E::SignatureGroup: DualScalarMultiplication,
@@ -361,10 +358,14 @@ mod tests {
             "deserialized public key in the sister group should be the same as the original"
         );
 
-        let deserialized_public_key = NuggetTriplePublicKey::<EB, S>::from_bytes(&TripleNuggetBLS::<EB, S>::to_nugget_triple_public_key(&keypair).to_bytes()).unwrap();
+        let deserialized_public_key = NuggetTriplePublicKey::<EB, S>::from_bytes(
+            &TripleNuggetBLS::<EB, S>::to_nugget_triple_public_key(&keypair).to_bytes(),
+        )
+        .unwrap();
 
         assert!(
-            deserialized_public_key.0 == TripleNuggetBLS::<EB, S>::to_nugget_triple_public_key(&keypair).0,
+            deserialized_public_key.0
+                == TripleNuggetBLS::<EB, S>::to_nugget_triple_public_key(&keypair).0,
             "deserialized public key should be the same as the original"
         );
     }
@@ -376,13 +377,9 @@ mod tests {
 
         let mut keypair = Keypair::<EB>::generate(thread_rng());
         let message = Message::new(b"ctx", b"test message");
-        let good_sig0 = <Keypair<_> as NuggetBLS<_, S>>::sign(
-            &mut keypair,
-            &message,
-        );
+        let good_sig0 = <Keypair<_> as NuggetBLS<_, S>>::sign(&mut keypair, &message);
 
-        let publickey =
-            TripleNuggetBLS::<EB, S>::to_nugget_triple_public_key(&keypair);
+        let publickey = TripleNuggetBLS::<EB, S>::to_nugget_triple_public_key(&keypair);
 
         let signed_message = NuggetSignedMessage {
             message: message,
@@ -396,12 +393,10 @@ mod tests {
             "valid double signed message should verify"
         );
 
-        let deserialized_signed_message = triple_nugget_public_key_serialization_test::<
-            EB,
-            Bls12_381,
-            S,
-            ark_bls12_381::Config,
-        >(signed_message);
+        let deserialized_signed_message =
+            triple_nugget_public_key_serialization_test::<EB, Bls12_381, S, ark_bls12_381::Config>(
+                signed_message,
+            );
 
         assert!(
             deserialized_signed_message.verify(),

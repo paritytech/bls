@@ -109,9 +109,9 @@ impl<E: EngineBLS, H: FixedOutputReset + Default + Clone + 'static>
     /// H(+s*G - k*Publkey|M) ==  k  
     fn verify(&self, public_key_of_prover: &PublicKey<E>) -> bool {
         let mut schnorr_point = <<E as EngineBLS>::PublicKeyGroup as PrimeGroup>::generator();
-        schnorr_point *= self.0 .0;
+        schnorr_point *= self.0.0;
         let mut k_public_key = public_key_of_prover.0;
-        k_public_key *= -self.0 .1;
+        k_public_key *= -self.0.1;
         schnorr_point += k_public_key;
 
         let schnorr_point_as_bytes = <E as EngineBLS>::public_key_point_to_byte(&schnorr_point);
@@ -125,16 +125,16 @@ impl<E: EngineBLS, H: FixedOutputReset + Default + Clone + 'static>
         >>::new(&[]);
         let random_scalar: E::Scalar =
             hasher.hash_to_field::<1>(resulting_proof_basis.as_slice())[0];
-        random_scalar == self.0 .1
+        random_scalar == self.0.1
     }
 }
 
 #[cfg(all(test, feature = "std"))]
 mod tests {
     use super::SchnorrPoP;
+    use crate::ProofOfPossessionGenerator;
     use crate::engine::ZBLS;
     use crate::single::{Keypair, PublicKey};
-    use crate::ProofOfPossessionGenerator;
     use rand::thread_rng;
     use sha2::Sha512;
 

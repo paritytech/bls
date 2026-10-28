@@ -2,9 +2,8 @@
 use sha2::Sha256;
 #[cfg(feature = "std")]
 use w3f_bls::{
-    experimental::schnorr_pop::SchnorrPoP,
-    pop_aggregator::SignatureAggregatorAssumingPoP,
     Keypair, Message, ProofOfPossession, ProofOfPossessionGenerator, PublicKey, Signed, ZBLS,
+    experimental::schnorr_pop::SchnorrPoP, pop_aggregator::SignatureAggregatorAssumingPoP,
 };
 
 /// Run using

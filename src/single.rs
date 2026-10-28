@@ -35,12 +35,12 @@ use ark_serialize::{
 };
 #[cfg(feature = "std")]
 use rand::thread_rng;
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{Rng, SeedableRng, rngs::StdRng};
 use rand_chacha::ChaCha8Rng;
 use sha2::Sha256;
 use sha3::{
-    digest::{ExtendableOutput, Update, XofReader},
     Shake128,
+    digest::{ExtendableOutput, Update, XofReader},
 };
 
 use digest::Digest;

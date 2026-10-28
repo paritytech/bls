@@ -23,12 +23,12 @@ use alloc::{vec, vec::Vec};
 
 use ark_ec::hashing::curve_maps::wb::{WBConfig, WBMap};
 use ark_ec::hashing::{
-    map_to_curve_hasher::{MapToCurve, MapToCurveBasedHasher},
     HashToCurve,
+    map_to_curve_hasher::{MapToCurve, MapToCurveBasedHasher},
 };
 use ark_ec::{
-    pairing::{MillerLoopOutput, Pairing, PairingOutput},
     AffineRepr, CurveGroup,
+    pairing::{MillerLoopOutput, Pairing, PairingOutput},
 };
 use ark_ff::field_hashers::{DefaultFieldHasher, HashToField};
 use ark_ff::{Field, PrimeField, UniformRand, Zero};

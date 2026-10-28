@@ -2,8 +2,8 @@
 use sha2::Sha256;
 #[cfg(feature = "std")]
 use w3f_bls::{
-    pop_aggregator::SignatureAggregatorAssumingPoP, EngineBLS, Keypair, Message, NuggetBLS,
-    PublicKeyInSignatureGroup, TinyBLS, TinyBLS377,
+    EngineBLS, Keypair, Message, NuggetBLS, PublicKeyInSignatureGroup, TinyBLS, TinyBLS377,
+    pop_aggregator::SignatureAggregatorAssumingPoP,
 };
 
 #[cfg(feature = "std")]
@@ -27,7 +27,11 @@ fn main() {
             .collect();
         let pub_keys_in_sig_grp: Vec<PublicKeyInSignatureGroup<TinyBLS377>> = keypairs
             .iter()
-            .map(|k| NuggetBLS::<_, <EB as EngineBLS>::SignatureGroup>::to_public_key_in_signature_group(k))
+            .map(|k| {
+                NuggetBLS::<_, <EB as EngineBLS>::SignatureGroup>::to_public_key_in_signature_group(
+                    k,
+                )
+            })
             .collect();
         let mut verifier_aggregator = SignatureAggregatorAssumingPoP::<TinyBLS377>::new();
 

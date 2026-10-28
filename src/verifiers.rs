@@ -487,7 +487,6 @@ fn verify_with_gaussian_elimination<S: Signed>(s: S) -> bool {
 
 */
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -496,8 +495,8 @@ mod tests {
     use ark_bls12_381::{Bls12_381, Fq, Fq2, G1Affine, G2Affine};
     use ark_ec::{AffineRepr, CurveGroup, PrimeGroup};
     use ark_ff::{BitIteratorBE, One, PrimeField, UniformRand};
-    use rand::rngs::StdRng;
     use rand::SeedableRng;
+    use rand::rngs::StdRng;
 
     type EB = UsualBLS<Bls12_381, ark_bls12_381::Config>;
 

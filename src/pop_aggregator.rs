@@ -231,8 +231,8 @@ mod tests {
     use crate::Message;
     use crate::TinyBLS;
     use crate::UsualBLS;
-    use rand::rngs::StdRng;
     use rand::SeedableRng;
+    use rand::rngs::StdRng;
     use sha2::Sha256;
 
     use ark_bls12_377::Bls12_377;
@@ -434,7 +434,7 @@ mod tests {
             .next()
             .unwrap()
             .1
-             .0;
+            .0;
         for aux in &pub_keys_in_sig_grp {
             verifier_aggregator
                 .aggregate_aux_publickey_for_message_n_publickey(&message, &aggregated_pk, aux)

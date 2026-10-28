@@ -9,9 +9,9 @@ use alloc::vec::Vec;
 #[cfg(feature = "benchmark")]
 use std::time::Instant;
 
+use ark_ec::CurveGroup;
 use ark_ec::scalar_mul::glv::GLVConfig;
 use ark_ec::short_weierstrass::Projective;
-use ark_ec::CurveGroup;
 use ark_ff::{AdditiveGroup, PrimeField, Zero};
 
 /// Marker trait for curves that don't have GLV endomorphism optimization.
@@ -45,7 +45,6 @@ where
 {
     type SigCurve = C;
 }
-
 
 /// Trait for dual scalar multiplication (computing a*P + b*Q efficiently).
 /// This is used in Chaum-Pedersen signature verification.
@@ -417,8 +416,8 @@ impl<C: BLSGLVConfig> DualScalarMultiplication for Projective<C> {
 #[cfg(all(test, feature = "std"))]
 mod tests {
     use super::*;
-    use ark_ec::short_weierstrass::Projective;
     use ark_ec::PrimeGroup;
+    use ark_ec::short_weierstrass::Projective;
     use ark_ff::UniformRand;
     use rand::thread_rng;
 
@@ -693,8 +692,7 @@ mod tests {
                 let got_none = SW::dual_scalar_mul(&a_s, &b_s, &p, &q, None);
                 assert_eq!(got_none, want, "({}, {}) mismatch, no table", a, b);
 
-                let got_some =
-                    SW::dual_scalar_mul(&a_s, &b_s, &p, &q, Some(&precomputed));
+                let got_some = SW::dual_scalar_mul(&a_s, &b_s, &p, &q, Some(&precomputed));
                 assert_eq!(got_some, want, "({}, {}) mismatch, precomputed table", a, b);
             }
         }
@@ -721,8 +719,7 @@ mod tests {
                 let got_none = G1::dual_scalar_mul(&a_s, &b_s, &g, &pk, None);
                 assert_eq!(got_none, want, "({}, {}) mismatch, no table", a, b);
 
-                let got_some =
-                    G1::dual_scalar_mul(&a_s, &b_s, &g, &pk, Some(&table.table));
+                let got_some = G1::dual_scalar_mul(&a_s, &b_s, &g, &pk, Some(&table.table));
                 assert_eq!(
                     got_some, want,
                     "({}, {}) mismatch, precomputed 256-element table",

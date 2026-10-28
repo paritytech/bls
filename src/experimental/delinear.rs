@@ -17,12 +17,12 @@ use ark_ff::BigInteger;
 use ark_ff::{PrimeField, Zero};
 use ark_serialize::CanonicalSerialize;
 use arrayref::array_refs;
+use rand::Rng;
 #[cfg(feature = "std")]
 use rand::thread_rng;
-use rand::Rng;
 use sha3::{
-    digest::{ExtendableOutput, Update, XofReader},
     Shake128,
+    digest::{ExtendableOutput, Update, XofReader},
 };
 
 use std::collections::HashMap;
