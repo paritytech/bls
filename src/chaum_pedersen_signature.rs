@@ -474,10 +474,8 @@ mod tests {
             &publickey, &message, &good_sig,
         ));
 
-        let publickey_glv: NuggetDoublePublicKeyGLV<EB, ark_bls12_381::g1::Config> =
-            DoubleNuggetBLSGLV::<EB, ark_bls12_381::g1::Config>::to_nugget_double_public_key(
-                &keypair,
-            );
+        let publickey_glv: NuggetDoublePublicKeyGLV<EB> =
+            DoubleNuggetBLSGLV::<EB>::to_nugget_double_public_key(&keypair);
 
         assert!(ChaumPedersenVerifier::<
             EB,
@@ -545,10 +543,8 @@ mod tests {
             <EB as EngineBLS>::SignatureGroup,
         >>::sign(&mut keypair, &message);
 
-        let publickey_glv: NuggetDoublePublicKeyGLV<EB, ark_bls12_381::g1::Config> =
-            DoubleNuggetBLSGLV::<EB, ark_bls12_381::g1::Config>::to_nugget_double_public_key(
-                &keypair,
-            );
+        let publickey_glv: NuggetDoublePublicKeyGLV<EB> =
+            DoubleNuggetBLSGLV::<EB>::to_nugget_double_public_key(&keypair);
 
         #[cfg(feature = "benchmark")]
         let start = Instant::now();

@@ -12,6 +12,8 @@
 //! It also proposes that each individual BLS signature accompany a DLEQ proof
 //! for faster verification
 
+use alloc::vec::Vec;
+
 use ark_ec::PrimeGroup;
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, Read, SerializationError, Valid, Validate,
@@ -142,6 +144,50 @@ impl<E: EngineBLS> SerializableToBytes for NuggetDoublePublicKey<E> {
         E::SIGNATURE_SERIALIZED_SIZE + E::PUBLICKEY_SERIALIZED_SIZE;
 }
 
+/// Ergonomic newtype over [`NuggetSignature<E>`] for the Nugget double-public-key
+/// construction. Verifies against either [`NuggetDoublePublicKey<E>`] (plain) or
+/// [`NuggetDoublePublicKeyGLV<E>`](crate::NuggetDoublePublicKeyGLV) (GLV-precomputed)
+///
+/// Byte-identical to [`NuggetSignature<E>`] and cryptographically interchangeable
+/// with it. The newtype exists only so that `sig.verify(&msg, &pk)` reads cleanly
+/// without supplying the `<S, H, P>` turbofish required by
+/// [`NuggetSignature::verify`].
+#[derive(Debug, Clone, CanonicalSerialize, CanonicalDeserialize)]
+pub struct DoubleNuggetSignature<E: EngineBLS>(pub NuggetSignature<E>);
+
+impl<E: EngineBLS> DoubleNuggetSignature<E>
+where
+    E::SignatureGroup: SerializableToBytes + DualScalarMultiplication,
+{
+    /// Verify this signature against any Nugget double public key — either the
+    /// plain [`NuggetDoublePublicKey`] or the GLV-optimized
+    /// [`NuggetDoublePublicKeyGLV`](crate::NuggetDoublePublicKeyGLV).  Rust
+    /// infers `P` from the pubkey type, so the call site is turbofish-free:
+    ///
+    /// ```ignore
+    /// sig.verify(&msg, &pk);      // plain pubkey: GLV scalar-mul with runtime 16-elt table
+    /// sig.verify(&msg, &pk_glv);  // GLV pubkey:   GLV scalar-mul with 256-elt precomputed table
+    /// ```
+    pub fn verify<P>(&self, message: &Message, publickey: &P) -> bool
+    where
+        P: NuggetPublicKey<E, E::SignatureGroup>,
+        E::SignatureGroup: ark_ec::PrimeGroup<ScalarField = E::Scalar>,
+    {
+        publickey.verify(message, &self.0)
+    }
+}
+
+impl<E: EngineBLS> SerializableToBytes for DoubleNuggetSignature<E> {
+    const SERIALIZED_BYTES_SIZE: usize =
+        <NuggetSignature<E> as SerializableToBytes>::SERIALIZED_BYTES_SIZE;
+}
+
+impl<E: EngineBLS> From<NuggetSignature<E>> for DoubleNuggetSignature<E> {
+    fn from(sig: NuggetSignature<E>) -> Self {
+        DoubleNuggetSignature(sig)
+    }
+}
+
 impl<E: EngineBLS> DoubleNuggetBLS<E> for SecretKeyVT<E>
 where
     E::SignatureGroup: SerializableToBytes,
@@ -235,40 +281,34 @@ mod tests {
         EB::SignatureGroup: SerializableToBytes + DualScalarMultiplication,
     {
         let good = Message::new(b"ctx", b"test message");
+        let bad = Message::new(b"ctx", b"wrong message");
 
         let mut keypair = Keypair::<EB>::generate(thread_rng());
-        let public_key = DoubleNuggetBLS::to_nugget_double_public_key(&mut keypair);
-        let good_sig =
-            <Keypair<EB> as NuggetBLS<EB, EB::SignatureGroup>>::sign(&mut keypair, &good);
+        let pk = DoubleNuggetBLS::to_nugget_double_public_key(&keypair);
+
+        let good_sig: DoubleNuggetSignature<EB> =
+            <Keypair<EB> as NuggetBLS<EB, EB::SignatureGroup>>::sign(&mut keypair, &good).into();
+        let bad_sig: DoubleNuggetSignature<EB> =
+            <Keypair<EB> as NuggetBLS<EB, EB::SignatureGroup>>::sign(&mut keypair, &bad).into();
 
         assert!(
-            public_key.verify(&good, &good_sig),
+            good_sig.verify(&good, &pk),
+            "Verification of a valid signature failed!"
+        );
+        assert!(
+            bad_sig.verify(&bad, &pk),
             "Verification of a valid signature failed!"
         );
 
-        let bad = Message::new(b"ctx", b"wrong message");
-        let bad_sig = <Keypair<EB> as NuggetBLS<EB, EB::SignatureGroup>>::sign(&mut keypair, &bad);
-
-        assert!(bad_sig.verify::<_, Sha256, _>(
-            &bad,
-            &DoubleNuggetBLS::to_nugget_double_public_key(&keypair)
-        ));
-
         assert!(good != bad, "good == bad");
-        assert!(good_sig.0 != bad_sig.0, "good sig == bad sig");
+        assert!(good_sig.0 .0 != bad_sig.0 .0, "good sig == bad sig");
 
         assert!(
-            !bad_sig.verify::<_, Sha256, _>(
-                &good,
-                &DoubleNuggetBLS::to_nugget_double_public_key(&keypair)
-            ),
+            !bad_sig.verify(&good, &pk),
             "Verification of a signature on a different message passed!"
         );
         assert!(
-            !good_sig.verify::<_, Sha256, _>(
-                &bad,
-                &DoubleNuggetBLS::to_nugget_double_public_key(&keypair)
-            ),
+            !good_sig.verify(&bad, &pk),
             "Verification of a signature on a different message passed!"
         );
     }

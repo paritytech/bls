@@ -1,13 +1,15 @@
-//! ## BLS key pair with public key in both G1 and G2 and on a third curve of
-//! ## group the same prime order
-//! ## This implement Unaggreagated BLS signature along side with their DLEQ proof
+//! ## Nugget BLS — generic core
 //!
-//! Implements schemes suggested in
-//! [paper](https://eprint.iacr.org/2022/1611)
-//! with a chaum-pedersen signature on a third curve
+//! Core traits and types for the Nugget BLS construction described in
+//! [eprint 2022/1611](https://eprint.iacr.org/2022/1611): a BLS signature
+//! paired with a Chaum-Pedersen DLEQ proof binding the signer's public-key
+//! representations across groups to the same secret.
 //!
-//! The scheme is the same as the one implemented in `double.rs`
-//! with the exception that the signature is on the third curve.
+//! This module is parameterised by a [`NuggetPublicKey`] shape; the specific
+//! flavors live in sibling modules:
+//! - [`double_nugget`](crate::double_nugget) — public key in G1 + G2
+//! - [`double_nugget_glv`](crate::double_nugget_glv) — the above with GLV precomputation
+//! - `experimental::triple_nugget` — public key in G1 + G2 + a sister curve
 //!
 
 use alloc::vec::Vec;

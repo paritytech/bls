@@ -516,10 +516,8 @@ fn test_verify_cp_signature_strauss_shamir_with_glv(b: &mut Bencher) {
         &message,
     );
 
-    let publickey: NuggetDoublePublicKeyGLV<EB, ark_bls12_381::g1::Config> =
-        DoubleNuggetBLSGLV::<EB, ark_bls12_381::g1::Config>::to_nugget_double_public_key(
-            &keypair,
-        );
+    let publickey: NuggetDoublePublicKeyGLV<EB> =
+        DoubleNuggetBLSGLV::<EB>::to_nugget_double_public_key(&keypair);
 
     //we chaum pederesen verification which is faster
     b.iter(|| {
@@ -545,10 +543,8 @@ fn test_verify_signature_with_pairing(b: &mut Bencher) {
         &message,
     );
 
-    let publickey: NuggetDoublePublicKeyGLV<EB, ark_bls12_381::g1::Config> =
-        DoubleNuggetBLSGLV::<EB, ark_bls12_381::g1::Config>::to_nugget_double_public_key(
-            &keypair,
-        );
+    let publickey: NuggetDoublePublicKeyGLV<EB> =
+        DoubleNuggetBLSGLV::<EB>::to_nugget_double_public_key(&keypair);
 
     //we chaum pederesen verification which is faster
     b.iter(|| {

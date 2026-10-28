@@ -153,8 +153,11 @@ pub mod experimental;
 
 pub use engine::*;
 
-pub use double_nugget::{DoubleNuggetBLS, DoubleSignedMessage, NuggetDoublePublicKey};
-pub use double_nugget_glv::NuggetDoublePublicKeyGLV;
+pub use double_nugget::{
+    DoubleNuggetBLS, DoubleNuggetSignature, DoubleSignedMessage, NuggetDoublePublicKey,
+};
+pub use double_nugget_glv::{DoubleNuggetBLSGLV, DoubleSignedMessageGLV, NuggetDoublePublicKeyGLV};
+pub use dual_scalar_mul::EngineBLSGLV;
 pub use nugget::{
     NuggetBLS, NuggetPublicKey, NuggetSignature, PublicKeyInSignatureGroup, PublicKeyInSisterGroup,
 };

@@ -27,6 +27,25 @@ pub trait BLSGLVConfig: GLVConfig {}
 impl BLSGLVConfig for ark_bls12_381::g1::Config {}
 impl BLSGLVConfig for ark_bls12_377::g1::Config {}
 
+/// `EngineBLS` whose signature group is a GLV-capable short-Weierstrass
+/// projective curve.
+///
+/// A blanket impl covers every suitable engine, so downstream types can bound
+/// the Engine instead of tinkering with the internal Curve and arkworks types
+pub trait EngineBLSGLV:
+    crate::engine::EngineBLS<SignatureGroup = Projective<<Self as EngineBLSGLV>::SigCurve>>
+{
+    type SigCurve: BLSGLVConfig<ScalarField = Self::Scalar>;
+}
+
+impl<E, C> EngineBLSGLV for E
+where
+    E: crate::engine::EngineBLS<SignatureGroup = Projective<C>>,
+    C: BLSGLVConfig<ScalarField = E::Scalar>,
+{
+    type SigCurve = C;
+}
+
 
 /// Trait for dual scalar multiplication (computing a*P + b*Q efficiently).
 /// This is used in Chaum-Pedersen signature verification.
