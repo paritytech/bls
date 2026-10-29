@@ -6,7 +6,12 @@ In this crate, we take a largely unified approach to aggregation techniques and 
 
 The main maintained aggregation path provided by the library is based on proofs-of-possession; experimental implementations of aggregation based on the distinct-message and delinearized strategies are provided for research and comparison purposes only and are niether audited nor currently maintained.
 
-We only provide proof-of-possession for NuggetBLS scheme in `NuggetBLSPoP`. This a Schnorr-style DLEQ check fused into a pairing verification that binds the Nugget double public key's two representations (G1 and G2) to a single secret and hence force a PoP verification.  An experimental standalone Schnorr-signature PoP (`experimental::schnorr_pop::SchnorrPoP`) is also provided for research and comparison purposes; it has not been audited.
+Proof-of-possession for the Nugget double-public-key scheme is provided in two flavors:
+
+- **`NuggetBLSPoP`** — a BLS signature on the pubkey plus a Schnorr-style DLEQ check fused into the pairing verification, binding the Nugget double public key's two representations (G1 and G2) to a single secret.
+- **`NuggetBLSnCPPoP`** — the above *and* a separate Chaum-Pedersen signature on the pubkey; the verifier runs both the BLS pairing check and the CP signature check.
+
+An experimental standalone Schnorr-signature PoP (`experimental::schnorr_pop::SchnorrPoP`) is also provided for research and comparison purposes; it has not been audited.
 
 
 ## ⚠ Proof-of-Possession is a caller-side precondition
