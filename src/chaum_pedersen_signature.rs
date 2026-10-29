@@ -430,7 +430,7 @@ mod tests {
 
     use super::*;
 
-    use crate::double_nugget_glv::{DoubleNuggetBLSGLV, NuggetDoublePublicKeyGLV};
+    use crate::double_nugget_precomp::{DoubleNuggetBLSPrecomp, NuggetDoublePublicKeyPrecomp};
     use crate::{DoubleNuggetBLS, Keypair, NuggetDoublePublicKey, TinyBLS381};
     use sha2::Sha256;
 
@@ -473,8 +473,8 @@ mod tests {
             &publickey, &message, &good_sig,
         ));
 
-        let publickey_glv: NuggetDoublePublicKeyGLV<EB> =
-            DoubleNuggetBLSGLV::<EB>::to_nugget_double_public_key(&keypair);
+        let publickey_glv: NuggetDoublePublicKeyPrecomp<EB> =
+            DoubleNuggetBLSPrecomp::<EB>::to_nugget_double_public_key(&keypair);
 
         assert!(ChaumPedersenVerifier::<
             EB,
@@ -545,8 +545,8 @@ mod tests {
             <EB as EngineBLS>::SignatureGroup,
         >>::sign(&mut keypair, &message);
 
-        let publickey_glv: NuggetDoublePublicKeyGLV<EB> =
-            DoubleNuggetBLSGLV::<EB>::to_nugget_double_public_key(&keypair);
+        let publickey_glv: NuggetDoublePublicKeyPrecomp<EB> =
+            DoubleNuggetBLSPrecomp::<EB>::to_nugget_double_public_key(&keypair);
 
         #[cfg(feature = "benchmark")]
         let start = Instant::now();

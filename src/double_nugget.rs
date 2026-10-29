@@ -146,7 +146,7 @@ impl<E: EngineBLS> SerializableToBytes for NuggetDoublePublicKey<E> {
 
 /// Ergonomic newtype over [`NuggetSignature<E>`] for the Nugget double-public-key
 /// construction. Verifies against either [`NuggetDoublePublicKey<E>`] (plain) or
-/// [`NuggetDoublePublicKeyGLV<E>`](crate::NuggetDoublePublicKeyGLV) (GLV-precomputed)
+/// [`NuggetDoublePublicKeyPrecomp<E>`](crate::NuggetDoublePublicKeyPrecomp) (GLV-precomputed)
 ///
 /// Byte-identical to [`NuggetSignature<E>`] and cryptographically interchangeable
 /// with it. The newtype exists only so that `sig.verify(&msg, &pk)` reads cleanly
@@ -160,8 +160,8 @@ where
     E::SignatureGroup: SerializableToBytes + DualScalarMultiplication,
 {
     /// Verify this signature against any Nugget double public key — either the
-    /// plain [`NuggetDoublePublicKey`] or the GLV-optimized
-    /// [`NuggetDoublePublicKeyGLV`](crate::NuggetDoublePublicKeyGLV).  Rust
+    /// plain [`NuggetDoublePublicKey`] or the GLV-precomputed
+    /// [`NuggetDoublePublicKeyPrecomp`](crate::NuggetDoublePublicKeyPrecomp).  Rust
     /// infers `P` from the pubkey type, so the call site is turbofish-free:
     ///
     /// ```ignore

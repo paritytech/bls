@@ -8,7 +8,7 @@
 //! This module is parameterised by a [`NuggetPublicKey`] shape; the specific
 //! flavors live in sibling modules:
 //! - [`double_nugget`](crate::double_nugget) — public key in G1 + G2
-//! - [`double_nugget_glv`](crate::double_nugget_glv) — the above with GLV precomputation
+//! - [`double_nugget_precomp`](crate::double_nugget_precomp) — the above with GLV precomputation
 //! - `experimental::triple_nugget` — public key in G1 + G2 + a sister curve
 //!
 
@@ -264,5 +264,5 @@ impl<E: EngineBLS> SerializableToBytes for NuggetSignature<E> {
 
 // Tests for the nugget module's traits live in the implementation modules:
 // - double_nugget.rs tests for NuggetDoublePublicKey
-// - double_nugget_glv.rs tests for NuggetDoublePublicKeyGLV
+// - double_nugget_precomp.rs tests for NuggetDoublePublicKeyPrecomp
 // - triple_nugget.rs tests for NuggetTriplePublicKey

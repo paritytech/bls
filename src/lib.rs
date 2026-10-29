@@ -137,7 +137,7 @@ use digest::DynDigest;
 
 pub mod chaum_pedersen_signature;
 pub mod double_nugget;
-pub mod double_nugget_glv;
+pub mod double_nugget_precomp;
 pub mod dual_scalar_mul;
 pub mod engine;
 pub mod nugget;
@@ -156,7 +156,9 @@ pub use engine::*;
 pub use double_nugget::{
     DoubleNuggetBLS, DoubleNuggetSignature, DoubleSignedMessage, NuggetDoublePublicKey,
 };
-pub use double_nugget_glv::{DoubleNuggetBLSGLV, DoubleSignedMessageGLV, NuggetDoublePublicKeyGLV};
+pub use double_nugget_precomp::{
+    DoubleNuggetBLSPrecomp, DoubleSignedMessagePrecomp, NuggetDoublePublicKeyPrecomp,
+};
 pub use dual_scalar_mul::EngineBLSGLV;
 pub use nugget::{
     NuggetBLS, NuggetPublicKey, NuggetSignature, PublicKeyInSignatureGroup, PublicKeyInSisterGroup,
