@@ -154,10 +154,10 @@ pub mod experimental;
 pub use engine::*;
 
 pub use double_nugget::{
-    DoubleNuggetBLS, DoubleNuggetSignature, DoubleSignedMessage, NuggetDoublePublicKey,
+    DoubleNuggetBLS, DoubleNuggetPublicKey, DoubleNuggetSignature, DoubleSignedMessage,
 };
 pub use double_nugget_precomp::{
-    DoubleNuggetBLSPrecomp, DoubleSignedMessagePrecomp, NuggetDoublePublicKeyPrecomp,
+    DoubleNuggetBLSPrecomp, DoubleNuggetPublicKeyPrecomp, DoubleSignedMessagePrecomp,
 };
 pub use dual_scalar_mul::EngineBLSGLV;
 pub use nugget::{
@@ -172,7 +172,7 @@ use alloc::vec::Vec;
 /// Public key types usable in the [`Signed`] trait.
 ///
 /// Standard BLS uses [`PublicKey<E>`] which carries only the key in the
-/// public-key group.  Nugget-style schemes use [`NuggetDoublePublicKey<E>`]
+/// public-key group.  Nugget-style schemes use [`DoubleNuggetPublicKey<E>`]
 /// (or similar) which carries keys in **both** curve groups and thus
 /// supports auxiliary-key verification.
 pub trait GeneralizedBLSPublicKey<E: EngineBLS> {

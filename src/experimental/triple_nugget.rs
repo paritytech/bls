@@ -20,7 +20,7 @@ use crate::{EngineBLS, Message};
 /// BLS Public Key with sub keys in both G1 and G2 and on a third curve with same prime order group.
 /// It also precomputes generator plus public key for Strauss-Shamir speed up.
 #[derive(Debug, Clone)]
-pub struct NuggetTriplePublicKey<E: EngineBLS, S: CurveGroup>(
+pub struct TripleNuggetPublicKey<E: EngineBLS, S: CurveGroup>(
     pub E::SignatureGroup,
     pub E::PublicKeyGroup,
     pub S,
@@ -30,11 +30,11 @@ pub struct NuggetTriplePublicKey<E: EngineBLS, S: CurveGroup>(
 where
     S: PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes;
 
-impl<E: EngineBLS, S: CurveGroup> NuggetTriplePublicKey<E, S>
+impl<E: EngineBLS, S: CurveGroup> TripleNuggetPublicKey<E, S>
 where
     S: PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes,
 {
-    /// Creates a new NuggetTriplePublicKey from the public key components.
+    /// Creates a new TripleNuggetPublicKey from the public key components.
     /// The fourth element (gen + public_key_in_sister_group) is computed automatically.
     pub fn new(
         public_key_in_signature_group: E::SignatureGroup,
@@ -52,7 +52,7 @@ where
 }
 
 /// Manual serialization - only serialize the three public keys, not the precomputed sum
-impl<E: EngineBLS, S: CurveGroup> CanonicalSerialize for NuggetTriplePublicKey<E, S>
+impl<E: EngineBLS, S: CurveGroup> CanonicalSerialize for TripleNuggetPublicKey<E, S>
 where
     S: PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes,
 {
@@ -74,7 +74,7 @@ where
     }
 }
 
-impl<E: EngineBLS, S: CurveGroup> Valid for NuggetTriplePublicKey<E, S>
+impl<E: EngineBLS, S: CurveGroup> Valid for TripleNuggetPublicKey<E, S>
 where
     S: PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes,
 {
@@ -87,7 +87,7 @@ where
 }
 
 /// Manual deserialization - deserialize three public keys and recompute the precomputed sum
-impl<E: EngineBLS, S: CurveGroup> CanonicalDeserialize for NuggetTriplePublicKey<E, S>
+impl<E: EngineBLS, S: CurveGroup> CanonicalDeserialize for TripleNuggetPublicKey<E, S>
 where
     S: PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes,
 {
@@ -113,11 +113,11 @@ pub trait TripleNuggetBLS<
     S: CurveGroup + PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes,
 >: NuggetBLS<E, S>
 {
-    fn to_nugget_triple_public_key(&self) -> NuggetTriplePublicKey<E, S>;
+    fn to_triple_nugget_public_key(&self) -> TripleNuggetPublicKey<E, S>;
 }
 
 impl<E: EngineBLS, S: CurveGroup + DualScalarMultiplication, H: FixedOutputReset + Default + Clone>
-    ChaumPedersenVerifier<E, S, H> for NuggetTriplePublicKey<E, S>
+    ChaumPedersenVerifier<E, S, H> for TripleNuggetPublicKey<E, S>
 where
     S: PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes,
     E::SignatureGroup: DualScalarMultiplication,
@@ -125,7 +125,7 @@ where
 }
 
 impl<E: EngineBLS, S: CurveGroup + DualScalarMultiplication> NuggetPublicKey<E, S>
-    for NuggetTriplePublicKey<E, S>
+    for TripleNuggetPublicKey<E, S>
 where
     S: PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes,
     E::SignatureGroup: DualScalarMultiplication,
@@ -154,7 +154,7 @@ where
 /// Serialization for NuggetPublickey
 /// Serialize size depends on the size of the public key of the thrid curve
 /// so S, the sister curve  need to implement SerializableToBytes
-impl<E: EngineBLS, S: CurveGroup> SerializableToBytes for NuggetTriplePublicKey<E, S>
+impl<E: EngineBLS, S: CurveGroup> SerializableToBytes for TripleNuggetPublicKey<E, S>
 where
     S: PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes,
 {
@@ -166,8 +166,8 @@ impl<E: EngineBLS, S: CurveGroup> TripleNuggetBLS<E, S> for SecretKeyVT<E>
 where
     S: PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes,
 {
-    fn to_nugget_triple_public_key(&self) -> NuggetTriplePublicKey<E, S> {
-        NuggetTriplePublicKey::new(
+    fn to_triple_nugget_public_key(&self) -> TripleNuggetPublicKey<E, S> {
+        TripleNuggetPublicKey::new(
             NuggetBLS::<E, S>::to_public_key_in_signature_group(self).0,
             self.to_public().0,
             self.to_public_key_in_sister_group().0,
@@ -179,8 +179,8 @@ impl<E: EngineBLS, S: CurveGroup> TripleNuggetBLS<E, S> for KeypairVT<E>
 where
     S: PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes,
 {
-    fn to_nugget_triple_public_key(&self) -> NuggetTriplePublicKey<E, S> {
-        NuggetTriplePublicKey::new(
+    fn to_triple_nugget_public_key(&self) -> TripleNuggetPublicKey<E, S> {
+        TripleNuggetPublicKey::new(
             NuggetBLS::<E, S>::to_public_key_in_signature_group(&self.secret).0,
             self.secret.to_public().0,
             self.secret.to_public_key_in_sister_group().0,
@@ -192,8 +192,8 @@ impl<E: EngineBLS, S: CurveGroup> TripleNuggetBLS<E, S> for Keypair<E>
 where
     S: PrimeGroup<ScalarField = E::Scalar> + SerializableToBytes,
 {
-    fn to_nugget_triple_public_key(&self) -> NuggetTriplePublicKey<E, S> {
-        NuggetTriplePublicKey::new(
+    fn to_triple_nugget_public_key(&self) -> TripleNuggetPublicKey<E, S> {
+        TripleNuggetPublicKey::new(
             NuggetBLS::<E, S>::to_public_key_in_signature_group(&self.to_vartime()).0,
             self.to_vartime().public.0,
             self.to_vartime().to_public_key_in_sister_group().0,
@@ -237,7 +237,7 @@ mod tests {
         let good = Message::new(b"ctx", b"test message");
 
         let mut keypair = Keypair::<EB>::generate(thread_rng());
-        let public_key = TripleNuggetBLS::<EB, S>::to_nugget_triple_public_key(&keypair);
+        let public_key = TripleNuggetBLS::<EB, S>::to_triple_nugget_public_key(&keypair);
         let good_sig = NuggetBLS::<EB, S>::sign(&mut keypair, &good);
 
         assert!(
@@ -250,7 +250,7 @@ mod tests {
 
         assert!(bad_sig.verify::<_, Sha256, _>(
             &bad,
-            &TripleNuggetBLS::<EB, S>::to_nugget_triple_public_key(&keypair)
+            &TripleNuggetBLS::<EB, S>::to_triple_nugget_public_key(&keypair)
         ));
 
         assert!(good != bad, "good == bad");
@@ -259,14 +259,14 @@ mod tests {
         assert!(
             !bad_sig.verify::<_, Sha256, _>(
                 &good,
-                &TripleNuggetBLS::<EB, S>::to_nugget_triple_public_key(&keypair)
+                &TripleNuggetBLS::<EB, S>::to_triple_nugget_public_key(&keypair)
             ),
             "Verification of a signature on a different message passed!"
         );
         assert!(
             !good_sig.verify::<_, Sha256, _>(
                 &bad,
-                &TripleNuggetBLS::<EB, S>::to_nugget_triple_public_key(&keypair)
+                &TripleNuggetBLS::<EB, S>::to_triple_nugget_public_key(&keypair)
             ),
             "Verification of a signature on a different message passed!"
         );
@@ -314,24 +314,24 @@ mod tests {
             + DualScalarMultiplication,
         P: Bls12Config,
     >(
-        x: NuggetSignedMessage<EB, S, NuggetTriplePublicKey<EB, S>>,
-    ) -> NuggetSignedMessage<EB, S, NuggetTriplePublicKey<EB, S>>
+        x: NuggetSignedMessage<EB, S, TripleNuggetPublicKey<EB, S>>,
+    ) -> NuggetSignedMessage<EB, S, TripleNuggetPublicKey<EB, S>>
     where
         <P as Bls12Config>::G2Config: WBConfig,
         WBMap<<P as Bls12Config>::G2Config>: MapToCurve<<E as PairingEngine>::G2>,
         EB::SignatureGroup: SerializableToBytes + DualScalarMultiplication,
     {
-        let NuggetSignedMessage::<EB, S, NuggetTriplePublicKey<EB, S>> {
+        let NuggetSignedMessage::<EB, S, TripleNuggetPublicKey<EB, S>> {
             message,
             publickey,
             signature,
             ..
         } = x;
 
-        let publickey = NuggetTriplePublicKey::<EB, S>::from_bytes(&publickey.to_bytes()).unwrap();
+        let publickey = TripleNuggetPublicKey::<EB, S>::from_bytes(&publickey.to_bytes()).unwrap();
         let signature = NuggetSignature::<EB>::from_bytes(&signature.to_bytes()).unwrap();
 
-        NuggetSignedMessage::<EB, S, NuggetTriplePublicKey<EB, S>> {
+        NuggetSignedMessage::<EB, S, TripleNuggetPublicKey<EB, S>> {
             message,
             publickey,
             signature,
@@ -358,14 +358,14 @@ mod tests {
             "deserialized public key in the sister group should be the same as the original"
         );
 
-        let deserialized_public_key = NuggetTriplePublicKey::<EB, S>::from_bytes(
-            &TripleNuggetBLS::<EB, S>::to_nugget_triple_public_key(&keypair).to_bytes(),
+        let deserialized_public_key = TripleNuggetPublicKey::<EB, S>::from_bytes(
+            &TripleNuggetBLS::<EB, S>::to_triple_nugget_public_key(&keypair).to_bytes(),
         )
         .unwrap();
 
         assert!(
             deserialized_public_key.0
-                == TripleNuggetBLS::<EB, S>::to_nugget_triple_public_key(&keypair).0,
+                == TripleNuggetBLS::<EB, S>::to_triple_nugget_public_key(&keypair).0,
             "deserialized public key should be the same as the original"
         );
     }
@@ -379,7 +379,7 @@ mod tests {
         let message = Message::new(b"ctx", b"test message");
         let good_sig0 = <Keypair<_> as NuggetBLS<_, S>>::sign(&mut keypair, &message);
 
-        let publickey = TripleNuggetBLS::<EB, S>::to_nugget_triple_public_key(&keypair);
+        let publickey = TripleNuggetBLS::<EB, S>::to_triple_nugget_public_key(&keypair);
 
         let signed_message = NuggetSignedMessage {
             message: message,

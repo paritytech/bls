@@ -9,10 +9,9 @@ The main maintained aggregation path provided by the library is based on proofs-
 Proof-of-possession for the Nugget double-public-key scheme is provided in two flavors:
 
 - **`NuggetBLSPoP`** — a BLS signature on the pubkey plus a Schnorr-style DLEQ check fused into the pairing verification, binding the Nugget double public key's two representations (G1 and G2) to a single secret.
-- **`NuggetBLSnCPPoP`** — the above *and* a separate Chaum-Pedersen signature on the pubkey; the verifier runs both the BLS pairing check and the CP signature check.
+- **`NuggetBLSnCPPoP`** — the above *and* a separate Chaum-Pedersen signature on the pubkey; the verifier runs both the BLS pairing check and the CP signature check, the later is a PoK with an extractor.
 
 An experimental standalone Schnorr-signature PoP (`experimental::schnorr_pop::SchnorrPoP`) is also provided for research and comparison purposes; it has not been audited.
-
 
 ## ⚠ Proof-of-Possession is a caller-side precondition
 
@@ -83,7 +82,7 @@ let mut keypairs: Vec<_> = (0..3)
     .collect();
 let pub_keys_in_sig_grp: Vec<PublicKeyInSignatureGroup<TinyBLS377>> = keypairs
     .iter()
-    .map(|k| DoubleNuggetBLS::<TinyBLS377>::to_nugget_double_public_key(k).to_public_key_in_signature_group())
+    .map(|k| DoubleNuggetBLS::<TinyBLS377>::to_double_nugget_public_key(k).to_public_key_in_signature_group())
     .collect();
 
 let mut verifier_aggregator = SignatureAggregatorAssumingPoP::<TinyBLS377>::new();

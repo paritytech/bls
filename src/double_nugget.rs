@@ -38,7 +38,7 @@ use crate::{EngineBLS, Message};
 /// It also stores signature group generator plus public key for Strauss-Shamir
 /// speed up.
 #[derive(Debug, Clone)]
-pub struct NuggetDoublePublicKey<E: EngineBLS>(
+pub struct DoubleNuggetPublicKey<E: EngineBLS>(
     pub E::SignatureGroup,
     pub E::PublicKeyGroup,
     /// gen + public_key - precomputed for Strauss-Shamir, not serialized
@@ -46,7 +46,7 @@ pub struct NuggetDoublePublicKey<E: EngineBLS>(
 );
 
 /// Manual serialization - only serialize the two public keys, not the precomputed sum
-impl<E: EngineBLS> CanonicalSerialize for NuggetDoublePublicKey<E> {
+impl<E: EngineBLS> CanonicalSerialize for DoubleNuggetPublicKey<E> {
     fn serialize_with_mode<W: Write>(
         &self,
         mut writer: W,
@@ -62,7 +62,7 @@ impl<E: EngineBLS> CanonicalSerialize for NuggetDoublePublicKey<E> {
     }
 }
 
-impl<E: EngineBLS> Valid for NuggetDoublePublicKey<E> {
+impl<E: EngineBLS> Valid for DoubleNuggetPublicKey<E> {
     fn check(&self) -> Result<(), SerializationError> {
         self.0.check()?;
         self.1.check()?;
@@ -71,7 +71,7 @@ impl<E: EngineBLS> Valid for NuggetDoublePublicKey<E> {
 }
 
 /// Manual deserialization - deserialize two public keys and recompute the precomputed sum
-impl<E: EngineBLS> CanonicalDeserialize for NuggetDoublePublicKey<E> {
+impl<E: EngineBLS> CanonicalDeserialize for DoubleNuggetPublicKey<E> {
     fn deserialize_with_mode<R: Read>(
         mut reader: R,
         compress: Compress,
@@ -84,8 +84,8 @@ impl<E: EngineBLS> CanonicalDeserialize for NuggetDoublePublicKey<E> {
     }
 }
 
-impl<E: EngineBLS> NuggetDoublePublicKey<E> {
-    /// Creates a new NuggetDoublePublicKey from the public key components.
+impl<E: EngineBLS> DoubleNuggetPublicKey<E> {
+    /// Creates a new DoubleNuggetPublicKey from the public key components.
     /// The third element (gen + public_key) is computed automatically for Strauss-Shamir optimization.
     pub fn new(
         public_key_in_signature_group: E::SignatureGroup,
@@ -103,17 +103,17 @@ impl<E: EngineBLS> NuggetDoublePublicKey<E> {
 
 pub trait DoubleNuggetBLS<E: EngineBLS>: NuggetBLS<E, E::SignatureGroup> {
     /// Return a double public object containing public keys both in G1 and G2
-    fn to_nugget_double_public_key(&self) -> NuggetDoublePublicKey<E>;
+    fn to_double_nugget_public_key(&self) -> DoubleNuggetPublicKey<E>;
 }
 
 impl<E: EngineBLS, H: FixedOutputReset + Default + Clone>
-    ChaumPedersenVerifier<E, E::SignatureGroup, H> for NuggetDoublePublicKey<E>
+    ChaumPedersenVerifier<E, E::SignatureGroup, H> for DoubleNuggetPublicKey<E>
 where
     E::SignatureGroup: SerializableToBytes + DualScalarMultiplication,
 {
 }
 
-impl<E: EngineBLS> NuggetPublicKey<E, E::SignatureGroup> for NuggetDoublePublicKey<E>
+impl<E: EngineBLS> NuggetPublicKey<E, E::SignatureGroup> for DoubleNuggetPublicKey<E>
 where
     E::SignatureGroup: SerializableToBytes + DualScalarMultiplication,
 {
@@ -139,14 +139,14 @@ where
 }
 
 /// Serialization for DoublePublickey, We save one public key
-impl<E: EngineBLS> SerializableToBytes for NuggetDoublePublicKey<E> {
+impl<E: EngineBLS> SerializableToBytes for DoubleNuggetPublicKey<E> {
     const SERIALIZED_BYTES_SIZE: usize =
         E::SIGNATURE_SERIALIZED_SIZE + E::PUBLICKEY_SERIALIZED_SIZE;
 }
 
 /// Ergonomic newtype over [`NuggetSignature<E>`] for the Nugget double-public-key
-/// construction. Verifies against either [`NuggetDoublePublicKey<E>`] (plain) or
-/// [`NuggetDoublePublicKeyPrecomp<E>`](crate::NuggetDoublePublicKeyPrecomp) (GLV-precomputed)
+/// construction. Verifies against either [`DoubleNuggetPublicKey<E>`] (plain) or
+/// [`DoubleNuggetPublicKeyPrecomp<E>`](crate::DoubleNuggetPublicKeyPrecomp) (GLV-precomputed)
 ///
 /// Byte-identical to [`NuggetSignature<E>`] and cryptographically interchangeable
 /// with it. The newtype exists only so that `sig.verify(&msg, &pk)` reads cleanly
@@ -160,8 +160,8 @@ where
     E::SignatureGroup: SerializableToBytes + DualScalarMultiplication,
 {
     /// Verify this signature against any Nugget double public key — either the
-    /// plain [`NuggetDoublePublicKey`] or the GLV-precomputed
-    /// [`NuggetDoublePublicKeyPrecomp`](crate::NuggetDoublePublicKeyPrecomp).  Rust
+    /// plain [`DoubleNuggetPublicKey`] or the GLV-precomputed
+    /// [`DoubleNuggetPublicKeyPrecomp`](crate::DoubleNuggetPublicKeyPrecomp).  Rust
     /// infers `P` from the pubkey type, so the call site is turbofish-free:
     ///
     /// ```ignore
@@ -192,8 +192,8 @@ impl<E: EngineBLS> DoubleNuggetBLS<E> for SecretKeyVT<E>
 where
     E::SignatureGroup: SerializableToBytes,
 {
-    fn to_nugget_double_public_key(&self) -> NuggetDoublePublicKey<E> {
-        NuggetDoublePublicKey::new(
+    fn to_double_nugget_public_key(&self) -> DoubleNuggetPublicKey<E> {
+        DoubleNuggetPublicKey::new(
             <SecretKeyVT<E> as NuggetBLS<E, E::SignatureGroup>>::to_public_key_in_signature_group(
                 self,
             )
@@ -207,8 +207,8 @@ impl<E: EngineBLS> DoubleNuggetBLS<E> for KeypairVT<E>
 where
     E::SignatureGroup: SerializableToBytes,
 {
-    fn to_nugget_double_public_key(&self) -> NuggetDoublePublicKey<E> {
-        self.secret.to_nugget_double_public_key()
+    fn to_double_nugget_public_key(&self) -> DoubleNuggetPublicKey<E> {
+        self.secret.to_double_nugget_public_key()
     }
 }
 
@@ -216,15 +216,15 @@ impl<E: EngineBLS> DoubleNuggetBLS<E> for Keypair<E>
 where
     E::SignatureGroup: SerializableToBytes,
 {
-    fn to_nugget_double_public_key(&self) -> NuggetDoublePublicKey<E> {
-        self.to_vartime().to_nugget_double_public_key()
+    fn to_double_nugget_public_key(&self) -> DoubleNuggetPublicKey<E> {
+        self.to_vartime().to_double_nugget_public_key()
     }
 }
 
 /// Message with attached BLS signature
 ///
 pub type DoubleSignedMessage<E> =
-    NuggetSignedMessage<E, <E as EngineBLS>::SignatureGroup, NuggetDoublePublicKey<E>>;
+    NuggetSignedMessage<E, <E as EngineBLS>::SignatureGroup, DoubleNuggetPublicKey<E>>;
 
 #[cfg(all(test, feature = "std"))]
 mod tests {
@@ -262,7 +262,7 @@ mod tests {
             ..
         } = x;
 
-        let publickey = NuggetDoublePublicKey::<EB>::from_bytes(&publickey.to_bytes()).unwrap();
+        let publickey = DoubleNuggetPublicKey::<EB>::from_bytes(&publickey.to_bytes()).unwrap();
         let signature = NuggetSignature::<EB>::from_bytes(&signature.to_bytes()).unwrap();
 
         DoubleSignedMessage {
@@ -287,7 +287,7 @@ mod tests {
         let bad = Message::new(b"ctx", b"wrong message");
 
         let mut keypair = Keypair::<EB>::generate(thread_rng());
-        let pk = DoubleNuggetBLS::to_nugget_double_public_key(&keypair);
+        let pk = DoubleNuggetBLS::to_double_nugget_public_key(&keypair);
 
         let good_sig: DoubleNuggetSignature<EB> =
             <Keypair<EB> as NuggetBLS<EB, EB::SignatureGroup>>::sign(&mut keypair, &good).into();
@@ -328,7 +328,7 @@ mod tests {
 
         let signed_message = DoubleSignedMessage {
             message: message,
-            publickey: keypair.to_nugget_double_public_key(),
+            publickey: keypair.to_double_nugget_public_key(),
             signature: good_sig0,
             _phantom: PhantomData,
         };
@@ -363,7 +363,7 @@ mod tests {
 
         let signed_message = DoubleSignedMessage {
             message: message,
-            publickey: keypair.to_nugget_double_public_key(),
+            publickey: keypair.to_double_nugget_public_key(),
             signature: good_sig0,
             _phantom: PhantomData,
         };

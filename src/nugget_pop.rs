@@ -7,7 +7,7 @@ use crate::dual_scalar_mul::DualScalarMultiplication;
 use crate::engine::EngineBLS;
 use crate::{Message, NuggetSignature, ProofOfPossession, ProofOfPossessionGenerator};
 
-use crate::double_nugget::NuggetDoublePublicKey;
+use crate::double_nugget::DoubleNuggetPublicKey;
 use crate::nugget::{NuggetBLS, NuggetPublicKey};
 use crate::serialize::SerializableToBytes;
 use crate::single::{Keypair, PublicKey};
@@ -26,7 +26,7 @@ pub struct NuggetBLSPoP<E: EngineBLS>(pub E::SignatureGroup);
 
 //The bls proof of possession for single or double public key schemes are the same
 impl<E: EngineBLS, H: FixedOutputReset + Default + Clone + 'static>
-    ProofOfPossessionGenerator<E, H, NuggetDoublePublicKey<E>, NuggetBLSPoP<E>> for Keypair<E>
+    ProofOfPossessionGenerator<E, H, DoubleNuggetPublicKey<E>, NuggetBLSPoP<E>> for Keypair<E>
 where
     E::SignatureGroup: SerializableToBytes + DualScalarMultiplication,
 {
@@ -35,7 +35,7 @@ where
         let sigma_pop = ProofOfPossessionGenerator::<
             E,
             H,
-            NuggetDoublePublicKey<E>,
+            DoubleNuggetPublicKey<E>,
             NuggetBLSnCPPoP<E>,
         >::generate_pok(self);
         NuggetBLSPoP::<E>(sigma_pop.0.0)
@@ -50,13 +50,13 @@ impl<E: EngineBLS> SerializableToBytes for NuggetBLSPoP<E> {
 /// The verification process for verifying both possession of one secret key
 /// for two public key is different.
 impl<E: EngineBLS, H: FixedOutputReset + Default + Clone + 'static>
-    ProofOfPossession<E, H, NuggetDoublePublicKey<E>> for NuggetBLSPoP<E>
+    ProofOfPossession<E, H, DoubleNuggetPublicKey<E>> for NuggetBLSPoP<E>
 {
     /// verify the validity of PoP by performing the following Pairing
     /// e(H_pop(pk_2) + t.g_1, pk_2) = e(sign(H_pop(pk_2))+ t.pk_1, g_2)
     /// we verifying by calling the verify_prepared ⎈function from the
     /// engine.
-    fn verify(&self, public_key_of_prover: &NuggetDoublePublicKey<E>) -> bool {
+    fn verify(&self, public_key_of_prover: &DoubleNuggetPublicKey<E>) -> bool {
         //First we need to generate our randomness in a way that
         //prover is unable to predict. We assume g1 and g2 are fixed.
 
@@ -120,7 +120,7 @@ pub struct NuggetBLSnCPPoP<E: EngineBLS>(pub NuggetSignature<E>);
 
 //The implement the generation of bls proof of possession including  chaum-pederesno PoP for double public key schemes
 impl<E: EngineBLS, H: FixedOutputReset + Default + Clone + 'static>
-    ProofOfPossessionGenerator<E, H, NuggetDoublePublicKey<E>, NuggetBLSnCPPoP<E>> for Keypair<E>
+    ProofOfPossessionGenerator<E, H, DoubleNuggetPublicKey<E>, NuggetBLSnCPPoP<E>> for Keypair<E>
 where
     E::SignatureGroup: SerializableToBytes + DualScalarMultiplication,
 {
@@ -144,17 +144,17 @@ impl<E: EngineBLS> SerializableToBytes for NuggetBLSnCPPoP<E> {
 
 /// The verification process for verifying both nugget BLS and CP
 impl<E: EngineBLS, H: FixedOutputReset + Default + Clone + 'static>
-    ProofOfPossession<E, H, NuggetDoublePublicKey<E>> for NuggetBLSnCPPoP<E>
+    ProofOfPossession<E, H, DoubleNuggetPublicKey<E>> for NuggetBLSnCPPoP<E>
 where
     E::SignatureGroup: SerializableToBytes + DualScalarMultiplication,
 {
     /// verify the validity of PoP by verifying nugget PoP and the CP
     /// signature
-    fn verify(&self, public_key_of_prover: &NuggetDoublePublicKey<E>) -> bool {
+    fn verify(&self, public_key_of_prover: &DoubleNuggetPublicKey<E>) -> bool {
         let public_key_in_public_key_group_as_bytes =
             PublicKey::<E>(public_key_of_prover.1).to_bytes();
         //verify double pairing && verify cp
-        <NuggetBLSPoP<E> as ProofOfPossession<E, H, NuggetDoublePublicKey<E>>>::verify(
+        <NuggetBLSPoP<E> as ProofOfPossession<E, H, DoubleNuggetPublicKey<E>>>::verify(
             &NuggetBLSPoP::<E>(self.0.0),
             public_key_of_prover,
         ) && public_key_of_prover.verify(
@@ -170,7 +170,7 @@ mod tests {
     use crate::engine::{EngineBLS, TinyBLS381};
     use crate::serialize::SerializableToBytes;
     use crate::single::Keypair;
-    use crate::{NuggetDoublePublicKey, nugget_pop::NuggetBLSPoP};
+    use crate::{DoubleNuggetPublicKey, nugget_pop::NuggetBLSPoP};
     use crate::{ProofOfPossession, ProofOfPossessionGenerator};
 
     use ark_ff::Zero;
@@ -180,13 +180,13 @@ mod tests {
     use super::NuggetBLSnCPPoP;
 
     fn double_bls_pop_sign<
-        PoPFlavor: ProofOfPossession<TinyBLS381, Sha256, NuggetDoublePublicKey<TinyBLS381>>,
+        PoPFlavor: ProofOfPossession<TinyBLS381, Sha256, DoubleNuggetPublicKey<TinyBLS381>>,
     >()
     where
         Keypair<TinyBLS381>: ProofOfPossessionGenerator<
                 TinyBLS381,
                 Sha256,
-                NuggetDoublePublicKey<TinyBLS381>,
+                DoubleNuggetPublicKey<TinyBLS381>,
                 PoPFlavor,
             >,
     {
@@ -194,7 +194,7 @@ mod tests {
         <Keypair<TinyBLS381> as ProofOfPossessionGenerator<
             TinyBLS381,
             Sha256,
-            NuggetDoublePublicKey<TinyBLS381>,
+            DoubleNuggetPublicKey<TinyBLS381>,
             PoPFlavor,
         >>::generate_pok(&mut keypair);
     }
@@ -210,13 +210,13 @@ mod tests {
     }
 
     fn double_bls_pop_sign_and_verify<
-        PoPFlavor: ProofOfPossession<TinyBLS381, Sha256, NuggetDoublePublicKey<TinyBLS381>>,
+        PoPFlavor: ProofOfPossession<TinyBLS381, Sha256, DoubleNuggetPublicKey<TinyBLS381>>,
     >()
     where
         Keypair<TinyBLS381>: ProofOfPossessionGenerator<
                 TinyBLS381,
                 Sha256,
-                NuggetDoublePublicKey<TinyBLS381>,
+                DoubleNuggetPublicKey<TinyBLS381>,
                 PoPFlavor,
             >,
     {
@@ -224,13 +224,13 @@ mod tests {
         let proof_pair = <dyn ProofOfPossessionGenerator<
                 TinyBLS381,
                 Sha256,
-                NuggetDoublePublicKey<TinyBLS381>,
+                DoubleNuggetPublicKey<TinyBLS381>,
                 PoPFlavor,
             >>::generate_pok(&mut keypair);
         assert!(
-            ProofOfPossession::<TinyBLS381, Sha256, NuggetDoublePublicKey::<TinyBLS381>>::verify(
+            ProofOfPossession::<TinyBLS381, Sha256, DoubleNuggetPublicKey::<TinyBLS381>>::verify(
                 &proof_pair,
-                &DoubleNuggetBLS::to_nugget_double_public_key(&keypair)
+                &DoubleNuggetBLS::to_double_nugget_public_key(&keypair)
             ),
             "valid pok does not verify"
         );
@@ -247,13 +247,13 @@ mod tests {
     }
 
     fn double_bls_pop_of_random_public_key_should_fail<
-        PoPFlavor: ProofOfPossession<TinyBLS381, Sha256, NuggetDoublePublicKey<TinyBLS381>>,
+        PoPFlavor: ProofOfPossession<TinyBLS381, Sha256, DoubleNuggetPublicKey<TinyBLS381>>,
     >()
     where
         Keypair<TinyBLS381>: ProofOfPossessionGenerator<
                 TinyBLS381,
                 Sha256,
-                NuggetDoublePublicKey<TinyBLS381>,
+                DoubleNuggetPublicKey<TinyBLS381>,
                 PoPFlavor,
             >,
     {
@@ -261,14 +261,14 @@ mod tests {
         let proof_pair = <dyn ProofOfPossessionGenerator<
                 TinyBLS381,
                 Sha256,
-                NuggetDoublePublicKey<TinyBLS381>,
+                DoubleNuggetPublicKey<TinyBLS381>,
                 PoPFlavor,
             >>::generate_pok(&mut keypair_good);
         let keypair_bad = Keypair::<TinyBLS381>::generate(thread_rng());
         assert!(
-            !ProofOfPossession::<TinyBLS381, Sha256, NuggetDoublePublicKey::<TinyBLS381>>::verify(
+            !ProofOfPossession::<TinyBLS381, Sha256, DoubleNuggetPublicKey::<TinyBLS381>>::verify(
                 &proof_pair,
-                &DoubleNuggetBLS::to_nugget_double_public_key(&keypair_bad)
+                &DoubleNuggetBLS::to_double_nugget_public_key(&keypair_bad)
             ),
             "invalid pok of unrelated public key should not verify"
         );
@@ -285,14 +285,14 @@ mod tests {
     }
 
     fn pop_of_a_double_public_key_should_serialize_and_deserialize_for_bls12_381<
-        PoPFlavor: ProofOfPossession<TinyBLS381, Sha256, NuggetDoublePublicKey<TinyBLS381>>
+        PoPFlavor: ProofOfPossession<TinyBLS381, Sha256, DoubleNuggetPublicKey<TinyBLS381>>
             + SerializableToBytes,
     >()
     where
         Keypair<TinyBLS381>: ProofOfPossessionGenerator<
                 TinyBLS381,
                 Sha256,
-                NuggetDoublePublicKey<TinyBLS381>,
+                DoubleNuggetPublicKey<TinyBLS381>,
                 PoPFlavor,
             >,
     {
@@ -301,7 +301,7 @@ mod tests {
         let proof_pair = <dyn ProofOfPossessionGenerator<
                 TinyBLS381,
                 Sha256,
-                NuggetDoublePublicKey<TinyBLS381>,
+                DoubleNuggetPublicKey<TinyBLS381>,
                 PoPFlavor,
             >>::generate_pok(&mut keypair);
 
@@ -309,9 +309,9 @@ mod tests {
         let deserialized_proof = PoPFlavor::from_bytes(&serialized_proof).unwrap();
 
         assert!(
-            ProofOfPossession::<TinyBLS381, Sha256, NuggetDoublePublicKey::<TinyBLS381>>::verify(
+            ProofOfPossession::<TinyBLS381, Sha256, DoubleNuggetPublicKey::<TinyBLS381>>::verify(
                 &deserialized_proof,
-                &DoubleNuggetBLS::to_nugget_double_public_key(&keypair)
+                &DoubleNuggetBLS::to_double_nugget_public_key(&keypair)
             ),
             "valid pok does not verify"
         );
@@ -341,13 +341,13 @@ mod tests {
         let pop = <Keypair<TinyBLS381> as ProofOfPossessionGenerator<
             TinyBLS381,
             Sha256,
-            NuggetDoublePublicKey<TinyBLS381>,
+            DoubleNuggetPublicKey<TinyBLS381>,
             NuggetBLSPoP<TinyBLS381>,
         >>::generate_pok(&mut keypair);
 
         // Keep `.1` honest but zero out `.0`.
-        let honest = DoubleNuggetBLS::to_nugget_double_public_key(&keypair);
-        let tampered = NuggetDoublePublicKey::<TinyBLS381>::new(
+        let honest = DoubleNuggetBLS::to_double_nugget_public_key(&keypair);
+        let tampered = DoubleNuggetPublicKey::<TinyBLS381>::new(
             <TinyBLS381 as EngineBLS>::SignatureGroup::zero(),
             honest.1,
         );
@@ -356,7 +356,7 @@ mod tests {
             !<NuggetBLSPoP<TinyBLS381> as ProofOfPossession<
                 TinyBLS381,
                 Sha256,
-                NuggetDoublePublicKey<TinyBLS381>,
+                DoubleNuggetPublicKey<TinyBLS381>,
             >>::verify(&pop, &tampered),
             "tampering with .0 must fail; DLEQ in the pairing binds it to .1"
         );
@@ -380,14 +380,14 @@ mod tests {
         let pop = <Keypair<TinyBLS381> as ProofOfPossessionGenerator<
             TinyBLS381,
             Sha256,
-            NuggetDoublePublicKey<TinyBLS381>,
+            DoubleNuggetPublicKey<TinyBLS381>,
             NuggetBLSPoP<TinyBLS381>,
         >>::generate_pok(&mut keypair);
-        let double_pk = DoubleNuggetBLS::to_nugget_double_public_key(&keypair);
+        let double_pk = DoubleNuggetBLS::to_double_nugget_public_key(&keypair);
         assert!(!<NuggetBLSPoP<TinyBLS381> as ProofOfPossession<
             TinyBLS381,
             Sha256,
-            NuggetDoublePublicKey<TinyBLS381>,
+            DoubleNuggetPublicKey<TinyBLS381>,
         >>::verify(&pop, &double_pk));
     }
 }

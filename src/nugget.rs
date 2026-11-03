@@ -263,6 +263,6 @@ impl<E: EngineBLS> SerializableToBytes for NuggetSignature<E> {
 }
 
 // Tests for the nugget module's traits live in the implementation modules:
-// - double_nugget.rs tests for NuggetDoublePublicKey
-// - double_nugget_precomp.rs tests for NuggetDoublePublicKeyPrecomp
-// - triple_nugget.rs tests for NuggetTriplePublicKey
+// - double_nugget.rs tests for DoubleNuggetPublicKey
+// - double_nugget_precomp.rs tests for DoubleNuggetPublicKeyPrecomp
+// - triple_nugget.rs tests for TripleNuggetPublicKey

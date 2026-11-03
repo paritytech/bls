@@ -3,20 +3,19 @@ use rand::thread_rng;
 
 #[cfg(feature = "std")]
 use w3f_bls::{
-    DoubleNuggetBLS, DoubleNuggetBLSPrecomp, DoubleNuggetSignature, EngineBLS, Keypair, Message,
-    NuggetBLS, NuggetDoublePublicKey, NuggetDoublePublicKeyPrecomp, SerializableToBytes,
-    TinyBLS381,
+    DoubleNuggetBLS, DoubleNuggetBLSPrecomp, DoubleNuggetPublicKey, DoubleNuggetPublicKeyPrecomp,
+    DoubleNuggetSignature, EngineBLS, Keypair, Message, NuggetBLS, SerializableToBytes, TinyBLS381,
 };
 
 /// Sign a single message with Nugget BLS and verify it two ways:
 ///
-/// 1. Against the plain [`NuggetDoublePublicKey`]. On `TinyBLS381` the
+/// 1. Against the plain [`DoubleNuggetPublicKey`]. On `TinyBLS381` the
 ///    signature group is `Projective<g1::Config>` with `BLSGLVConfig`, so
 ///    trait resolution picks the GLV impl of `DualScalarMultiplication` —
 ///    the fast path fires, with a 16-element subset-sum table computed at
 ///    verify time (no precomputed table on the plain pubkey).
 ///
-/// 2. Against the precomputed-table [`NuggetDoublePublicKeyPrecomp`], which
+/// 2. Against the precomputed-table [`DoubleNuggetPublicKeyPrecomp`], which
 ///    caches a 256-entry Straus-Shamir subset-sum table laid out for the
 ///    GLV-signed combinations, so the verifier skips the per-call build.
 ///
@@ -45,10 +44,10 @@ fn main() {
         >>::sign(&mut keypair, &message);
         let sig: DoubleNuggetSignature<TinyBLS381> = raw_sig.into();
 
-        let pk: NuggetDoublePublicKey<TinyBLS381> =
-            DoubleNuggetBLS::to_nugget_double_public_key(&keypair);
-        let pk_precomp: NuggetDoublePublicKeyPrecomp<TinyBLS381> =
-            DoubleNuggetBLSPrecomp::to_nugget_double_public_key(&keypair);
+        let pk: DoubleNuggetPublicKey<TinyBLS381> =
+            DoubleNuggetBLS::to_double_nugget_public_key(&keypair);
+        let pk_precomp: DoubleNuggetPublicKeyPrecomp<TinyBLS381> =
+            DoubleNuggetBLSPrecomp::to_double_nugget_public_key(&keypair);
 
         // Same signature, two pubkeys, same call shape — Rust picks the
         // appropriate `NuggetPublicKey::verify` impl from each pubkey type.

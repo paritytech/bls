@@ -430,8 +430,8 @@ mod tests {
 
     use super::*;
 
-    use crate::double_nugget_precomp::{DoubleNuggetBLSPrecomp, NuggetDoublePublicKeyPrecomp};
-    use crate::{DoubleNuggetBLS, Keypair, NuggetDoublePublicKey, TinyBLS381};
+    use crate::double_nugget_precomp::{DoubleNuggetBLSPrecomp, DoubleNuggetPublicKeyPrecomp};
+    use crate::{DoubleNuggetBLS, DoubleNuggetPublicKey, Keypair, TinyBLS381};
     use sha2::Sha256;
 
     #[test]
@@ -446,8 +446,8 @@ mod tests {
             &message,
         );
 
-        let publickey: NuggetDoublePublicKey<EB> =
-            DoubleNuggetBLS::<EB>::to_nugget_double_public_key(&keypair);
+        let publickey: DoubleNuggetPublicKey<EB> =
+            DoubleNuggetBLS::<EB>::to_double_nugget_public_key(&keypair);
 
         assert!(ChaumPedersenVerifier::<
             EB,
@@ -473,8 +473,8 @@ mod tests {
             &publickey, &message, &good_sig,
         ));
 
-        let publickey_glv: NuggetDoublePublicKeyPrecomp<EB> =
-            DoubleNuggetBLSPrecomp::<EB>::to_nugget_double_public_key(&keypair);
+        let publickey_glv: DoubleNuggetPublicKeyPrecomp<EB> =
+            DoubleNuggetBLSPrecomp::<EB>::to_double_nugget_public_key(&keypair);
 
         assert!(ChaumPedersenVerifier::<
             EB,
@@ -491,7 +491,7 @@ mod tests {
         #[cfg(feature = "benchmark")]
         use std::time::Instant;
 
-        use crate::experimental::triple_nugget::{NuggetTriplePublicKey, TripleNuggetBLS};
+        use crate::experimental::triple_nugget::{TripleNuggetBLS, TripleNuggetPublicKey};
         use ark_sw_by_bls12_381::SWProjective;
 
         type EB = TinyBLS381;
@@ -502,8 +502,8 @@ mod tests {
         let mut keypair = Keypair::<EB>::generate(thread_rng());
         let good_sig = <Keypair<EB> as NuggetBLS<EB, S>>::sign(&mut keypair, &message);
 
-        let publickey: NuggetTriplePublicKey<EB, S> =
-            TripleNuggetBLS::<EB, S>::to_nugget_triple_public_key(&keypair);
+        let publickey: TripleNuggetPublicKey<EB, S> =
+            TripleNuggetBLS::<EB, S>::to_triple_nugget_public_key(&keypair);
 
         #[cfg(feature = "benchmark")]
         let start = Instant::now();
@@ -545,8 +545,8 @@ mod tests {
             <EB as EngineBLS>::SignatureGroup,
         >>::sign(&mut keypair, &message);
 
-        let publickey_glv: NuggetDoublePublicKeyPrecomp<EB> =
-            DoubleNuggetBLSPrecomp::<EB>::to_nugget_double_public_key(&keypair);
+        let publickey_glv: DoubleNuggetPublicKeyPrecomp<EB> =
+            DoubleNuggetBLSPrecomp::<EB>::to_double_nugget_public_key(&keypair);
 
         #[cfg(feature = "benchmark")]
         let start = Instant::now();

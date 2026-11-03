@@ -53,13 +53,13 @@ use rand::thread_rng;
 
 use crate::double_nugget::DoubleNuggetBLS;
 use crate::double_nugget_precomp::DoubleNuggetBLSPrecomp;
-use crate::double_nugget_precomp::NuggetDoublePublicKeyPrecomp;
+use crate::double_nugget_precomp::DoubleNuggetPublicKeyPrecomp;
 use crate::nugget::{NuggetBLS, NuggetSignedMessage};
-use crate::experimental::triple_nugget::NuggetTriplePublicKey;
+use crate::experimental::triple_nugget::TripleNuggetPublicKey;
 use crate::experimental::triple_nugget::TripleNuggetBLS;
 use crate::dual_scalar_mul::NonGLVCurve;
 use crate::serialize::SerializableToBytes;
-use crate::NuggetDoublePublicKey;
+use crate::DoubleNuggetPublicKey;
 use crate::PublicKeyInSignatureGroup;
 
 // SerializableToBytes for ark_sw_by_bls12_381::SWProjective is implemented in triple_nugget tests
@@ -176,12 +176,12 @@ use crate::PublicKeyInSignatureGroup;
 //         TinyBLS381,
 //         <TinyBLS381 as EngineBLS>::SignatureGroup,
 //     >>::sign(&mut keypair, &message);
-//     let double_nugget_public = keypair.to_nugget_double_public_key();
+//     let double_nugget_public = keypair.to_double_nugget_public_key();
 
 //     b.iter(|| {
 //         for i in 1..NO_OF_MULTI_SIG_SIGNERS {
 //             assert!(
-//                 <NuggetDoublePublicKey<TinyBLS381> as ChaumPedersenVerifier<
+//                 <DoubleNuggetPublicKey<TinyBLS381> as ChaumPedersenVerifier<
 //                     TinyBLS381,
 //                     <TinyBLS381 as EngineBLS>::SignatureGroup,
 //                     Sha256,
@@ -200,12 +200,12 @@ use crate::PublicKeyInSignatureGroup;
 //         TinyBLS381,
 //         ark_ed_by_bls12_381::EdwardsProjective,
 //     >>::sign(&mut keypair, &message);
-//     let triple_nugget_public_key: NuggetTriplePublicKey<_, ark_ed_by_bls12_381::EdwardsProjective> =
-//         keypair.to_nugget_triple_public_key();
+//     let triple_nugget_public_key: TripleNuggetPublicKey<_, ark_ed_by_bls12_381::EdwardsProjective> =
+//         keypair.to_triple_nugget_public_key();
 
 //     b.iter(|| {
 //         for i in 1..NO_OF_MULTI_SIG_SIGNERS {
-//             assert!(<NuggetTriplePublicKey<
+//             assert!(<TripleNuggetPublicKey<
 //                 TinyBLS381,
 //                 ark_ed_by_bls12_381::EdwardsProjective,
 //             > as ChaumPedersenVerifier<
@@ -371,7 +371,7 @@ use crate::PublicKeyInSignatureGroup;
 
 //         let signed_message = DoubleSignedMessage {
 //             message: message,
-//             publickey: keypair.to_nugget_double_public_key(),
+//             publickey: keypair.to_double_nugget_public_key(),
 //             signature: good_sig0,
 //             _phantom: PhantomData,
 //         };
@@ -395,12 +395,12 @@ fn test_bls_verify_many_signatures_chaum_pedersen_in_weierstrass_sister_group_st
             &message,
         );
 
-    let triple_nugget_public_key: NuggetTriplePublicKey<_, ark_sw_by_bls12_381::SWProjective> =
-        keypair.to_nugget_triple_public_key();
+    let triple_nugget_public_key: TripleNuggetPublicKey<_, ark_sw_by_bls12_381::SWProjective> =
+        keypair.to_triple_nugget_public_key();
 
     b.iter(|| {
         for i in 0..NO_OF_MULTI_SIG_SIGNERS {
-            let i = <NuggetTriplePublicKey<
+            let i = <TripleNuggetPublicKey<
                 TinyBLS381,
                 ark_sw_by_bls12_381::SWProjective,
             > as ChaumPedersenVerifier<
@@ -428,12 +428,12 @@ fn test_bls_verify_many_signatures_chaum_pedersen_in_weierstrass_sister_group_na
             &message,
         );
 
-    let triple_nugget_public_key: NuggetTriplePublicKey<_, ark_sw_by_bls12_381::SWProjective> =
-        keypair.to_nugget_triple_public_key();
+    let triple_nugget_public_key: TripleNuggetPublicKey<_, ark_sw_by_bls12_381::SWProjective> =
+        keypair.to_triple_nugget_public_key();
 
     b.iter(|| {
         for i in 0..NO_OF_MULTI_SIG_SIGNERS {
-            let i = <NuggetTriplePublicKey<
+            let i = <TripleNuggetPublicKey<
                 TinyBLS381,
                 ark_sw_by_bls12_381::SWProjective,
             > as ChaumPedersenVerifier<
@@ -459,8 +459,8 @@ fn test_verify_cp_signature_naive(b: &mut Bencher) {
         &message,
     );
 
-    let publickey: NuggetDoublePublicKey<EB> =
-        DoubleNuggetBLS::<EB>::to_nugget_double_public_key(&keypair);
+    let publickey: DoubleNuggetPublicKey<EB> =
+        DoubleNuggetBLS::<EB>::to_double_nugget_public_key(&keypair);
 
     //we chaum pederesen verification which is faster
     b.iter(|| {
@@ -485,7 +485,7 @@ fn test_verify_cp_signature_naive(b: &mut Bencher) {
 // table (GLV pubkey). Neither is a "non-GLV" baseline.
 
 /// GLV scalar-mul with the 16-element subset-sum table **built at verify time**
-/// (the plain [`NuggetDoublePublicKey`] exposes no precomputed slice).
+/// (the plain [`DoubleNuggetPublicKey`] exposes no precomputed slice).
 #[bench]
 fn test_verify_cp_signature_glv_runtime_table(b: &mut Bencher) {
     type EB = TinyBLS381;
@@ -497,8 +497,8 @@ fn test_verify_cp_signature_glv_runtime_table(b: &mut Bencher) {
         &message,
     );
 
-    let publickey: NuggetDoublePublicKey<EB> =
-        DoubleNuggetBLS::<EB>::to_nugget_double_public_key(&keypair);
+    let publickey: DoubleNuggetPublicKey<EB> =
+        DoubleNuggetBLS::<EB>::to_double_nugget_public_key(&keypair);
 
     //we chaum pederesen verification which is faster
     b.iter(|| {
@@ -525,8 +525,8 @@ fn test_verify_cp_signature_ark_msm(b: &mut Bencher) {
         &message,
     );
 
-    let publickey: NuggetDoublePublicKey<EB> =
-        DoubleNuggetBLS::<EB>::to_nugget_double_public_key(&keypair);
+    let publickey: DoubleNuggetPublicKey<EB> =
+        DoubleNuggetBLS::<EB>::to_double_nugget_public_key(&keypair);
 
     //we chaum pederesen verification which is faster
     b.iter(|| {
@@ -542,7 +542,7 @@ fn test_verify_cp_signature_ark_msm(b: &mut Bencher) {
 }
 
 /// GLV scalar-mul with the **256-element precomputed subset-sum table** carried
-/// by [`NuggetDoublePublicKeyPrecomp`] (sign-indexed slice-out, no runtime build).
+/// by [`DoubleNuggetPublicKeyPrecomp`] (sign-indexed slice-out, no runtime build).
 #[bench]
 fn test_verify_cp_signature_glv_precomputed_table(b: &mut Bencher) {
     type EB = TinyBLS381;
@@ -554,8 +554,8 @@ fn test_verify_cp_signature_glv_precomputed_table(b: &mut Bencher) {
         &message,
     );
 
-    let publickey: NuggetDoublePublicKeyPrecomp<EB> =
-        DoubleNuggetBLSPrecomp::<EB>::to_nugget_double_public_key(&keypair);
+    let publickey: DoubleNuggetPublicKeyPrecomp<EB> =
+        DoubleNuggetBLSPrecomp::<EB>::to_double_nugget_public_key(&keypair);
 
     //we chaum pederesen verification which is faster
     b.iter(|| {
@@ -581,8 +581,8 @@ fn test_verify_signature_with_pairing(b: &mut Bencher) {
         &message,
     );
 
-    let publickey: NuggetDoublePublicKeyPrecomp<EB> =
-        DoubleNuggetBLSPrecomp::<EB>::to_nugget_double_public_key(&keypair);
+    let publickey: DoubleNuggetPublicKeyPrecomp<EB> =
+        DoubleNuggetBLSPrecomp::<EB>::to_double_nugget_public_key(&keypair);
 
     //we chaum pederesen verification which is faster
     b.iter(|| {
@@ -633,8 +633,8 @@ fn test_verify_signature_with_pairing(b: &mut Bencher) {
 //         &message,
 //     );
 
-//     let publickey: NuggetDoublePublicKeyPrecomp<EB, ark_bls12_381::g1::Config> =
-//         keypair.to_nugget_double_public_key();
+//     let publickey: DoubleNuggetPublicKeyPrecomp<EB, ark_bls12_381::g1::Config> =
+//         keypair.to_double_nugget_public_key();
 
 //     // Verify with GLV precomputed 256-element table
 //     b.iter(|| {
